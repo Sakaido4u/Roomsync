@@ -1,0 +1,27 @@
+# RoomSync backend - Python packages
+# Install with:  pip install -r requirements.txt
+
+# Web framework and the server that runs it
+fastapi
+uvicorn[standard]
+
+# Database: SQLAlchemy talks to the database, psycopg is the PostgreSQL driver
+sqlalchemy
+psycopg[binary]
+
+# Reads settings (database address, secret keys) from the .env file
+pydantic-settings
+
+# Login security: bcrypt hashes passwords, PyJWT creates login tokens
+bcrypt
+PyJWT
+
+# Lets FastAPI read form data (used by the login page on /docs)
+python-multipart
+
+# Runs timed jobs, e.g. the 15-minute no-show check
+apscheduler
+
+# Testing: pytest runs tests, httpx lets tests call the API
+pytest
+httpx
