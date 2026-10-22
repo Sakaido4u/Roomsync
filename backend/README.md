@@ -65,10 +65,45 @@ CREATE EXTENSION btree_gist;
 | Add demo data | `python -m app.seed` |
 | Wipe and recreate all tables | `python -m app.init_db --reset` |
 | Run the tests | `pytest -v` |
+| Send a test email | `python -m app.send_test_email you@example.com` |
 
 Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 `T001` (admin/HOD), `T002` and `T003` (teachers), `1JS23CS044` (student, CR),
 `1JS23CS039` (student).
+
+## Email setup (Gmail)
+
+Notifications and setup codes are also emailed when SMTP is set in `.env`.
+Without it everything still works; emails are just skipped (and setup codes
+are shown in the server window instead). To send through a Gmail account:
+
+1. Use a Gmail account for the project (a separate one is best). Open
+   https://myaccount.google.com/security and turn on **2-Step Verification**.
+   App Passwords only appear once it is on.
+2. Open https://myaccount.google.com/apppasswords, type a name such as
+   `RoomSync`, and click **Create**. Google shows a 16-letter password once.
+   Copy it (the spaces don't matter).
+3. In `backend/.env`:
+
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=your.project.account@gmail.com
+   SMTP_PASSWORD=the16letterapppassword
+   EMAIL_FROM=RoomSync <your.project.account@gmail.com>
+   ```
+
+4. Send yourself a test email (venv active, inside `backend/`):
+
+   ```powershell
+   python -m app.send_test_email you@example.com
+   ```
+
+   It prints `Sent.` or exactly what went wrong.
+5. Restart the server so it reads the new settings.
+
+Never commit `.env`. If the App Password leaks, delete it on the App
+Passwords page and create a new one.
 
 ## Trying logged-in endpoints on /docs
 
