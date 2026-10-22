@@ -11,9 +11,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.config import BACKEND_DIR
 from app.database import get_db
 from app.errors import ApiError, register_error_handlers
 from app.init_db import create_tables
@@ -30,6 +32,9 @@ from app.routers import (
     rooms,
     timetable,
 )
+
+
+FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
 
 
 @asynccontextmanager
@@ -86,3 +91,9 @@ app.include_router(timetable.router)
 app.include_router(no_show_response.router)
 app.include_router(admin.router)
 app.include_router(classes.router)
+
+# The web dashboard (plain HTML, CSS and JavaScript in ../frontend) is served
+# from the same server at http://127.0.0.1:8000/, so it can call /api/...
+# directly. Mounted last, so every /api and /docs address above wins.
+if FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
