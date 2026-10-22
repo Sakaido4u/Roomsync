@@ -343,7 +343,7 @@ For endpoints 15 to 17, a missing or empty `reason` gives `400 reason_required`,
 { "action": "keep" }
 ```
 
-`action` is `keep` or `release`. Reply `200` with the booking: unchanged for `keep`, or `"booking_status": "released"` for `release`. Only the teacher who booked it or that class's CR can answer.
+`action` is `keep` or `release`. Reply `200` with the booking: unchanged for `keep`, or `"booking_status": "released"` for `release`. Only the teacher who booked it or that class's CR can answer (others: `403 forbidden`). After `keep`, the no-show check leaves the booking alone; after `release`, the other person is notified with `booking_released`. A booking with no reminder sent, one that is no longer active, or one that has ended gives `400 invalid_input`.
 
 ## Timetable, occupancy and notifications
 

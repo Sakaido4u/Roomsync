@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # No-show rule (minutes). Kept here so they can be changed in one place.
     no_show_reminder_after: int = 15
     no_show_release_after: int = 10
+    # Run the every-minute no-show check while the server is up. The tests
+    # turn it off, because they run the check themselves with a chosen "now".
+    background_jobs: bool = True
     # A camera reading older than this counts as "No camera data".
     occupancy_stale_seconds: int = 60
     # Camera readings arrive every few seconds per room, so old ones are

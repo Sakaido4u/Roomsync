@@ -18,6 +18,8 @@ backend/
 │   ├── timeutil.py   Date + "HH:MM" <-> India-time date-times
 │   ├── occupancy.py  Latest camera reading -> people_detected / not_detected / no_data
 │   ├── notify.py     Creates notifications and sends their email copies
+│   ├── no_show.py    The no-show check: remind, then release empty booked rooms
+│   ├── scheduler.py  Runs the no-show check every minute while the server is up
 │   ├── routers/
 │   │   ├── auth.py      Login, current user (endpoints 3, 4)
 │   │   ├── bookings.py  Reserve, my bookings, cancel (endpoints 12-14)
@@ -25,7 +27,8 @@ backend/
 │   │   ├── occupancy.py Camera readings in, latest reading out (endpoints 20, 21)
 │   │   ├── booking_changes.py  Admin override, reschedule, remove (endpoints 15-17)
 │   │   ├── notifications.py    My notifications, mark as read (endpoints 22, 23)
-│   │   └── timetable.py        Timetable upload (endpoint 19)
+│   │   ├── timetable.py        Timetable upload (endpoint 19)
+│   │   └── no_show_response.py Keep or release after a no-show reminder (endpoint 18)
 │   ├── init_db.py    Creates (or resets) the tables
 │   └── seed.py       Adds demo users, rooms and bookings
 ├── tests/            Automated tests (pytest)
@@ -83,8 +86,9 @@ Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 | 15, 16, 17 | Admin override, reschedule, remove (with reason) | Done |
 | 20, 21 | Camera readings in, latest reading out | Done |
 | 22, 23 | My notifications, mark as read | Done |
+| 18 | No-show check (every minute) and answering the reminder | Done |
 | 19 | Timetable upload | Done |
-| others | Setup codes, admin rights, CR, no-show | To do |
+| others | Setup codes, admin rights, CR | To do |
 
 ## For the camera program
 
@@ -124,3 +128,20 @@ reading is over 60 seconds old, so keep sending even when nothing changes.
 
 After changing `models.py`, run `python -m app.init_db --reset` and then
 `python -m app.seed`, because existing tables are not updated automatically.
+The exception is a new column listed in `UPGRADES` in `app/init_db.py`:
+those are added on server start without losing data.
+
+## No-show check
+
+While the server runs, every minute it looks at bookings in progress in
+rooms that have a camera (`camera_stream` set) and `no_show_enabled`:
+
+- 15 minutes after the start (`NO_SHOW_REMINDER_AFTER`), if the camera
+  proves nobody has been there since the start, the teacher and class CR
+  get a `no_show_reminder`. They answer Keep or Release (endpoint 18).
+- 10 minutes later (`NO_SHOW_RELEASE_AFTER`), if nobody answered and the
+  room is still empty, the booking is `released` and both are told.
+
+"Proves nobody was there" means readings arrived the whole time with no gap
+over `OCCUPANCY_STALE_SECONDS`, all `online`, all not detected. Missing or
+delayed camera data never releases a booking.

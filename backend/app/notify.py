@@ -54,13 +54,18 @@ def class_cr(db: Session, class_id: str | None) -> User | None:
     )
 
 
-def recipients_for(db: Session, booking: Booking, actor: User) -> list[Recipient]:
-    """Who to tell about a change to this booking. The admin making the change is skipped."""
+def recipients_for(db: Session, booking: Booking, actor: User | None) -> list[Recipient]:
+    """Who to tell about a change to this booking.
+
+    The person making the change is skipped. actor is None for changes made
+    by the system itself (the no-show check), so everyone is told.
+    """
+    actor_id = actor.id if actor is not None else None
     people: list[Recipient] = []
-    if booking.booked_by.id != actor.id:
+    if booking.booked_by.id != actor_id:
         people.append(Recipient(booking.booked_by, booking.booked_by.name, is_cr=False))
     cr = class_cr(db, booking.class_id)
-    if cr is not None and cr.id != actor.id:
+    if cr is not None and cr.id != actor_id:
         people.append(Recipient(cr, f"CR of {booking.class_id}", is_cr=True))
     return people
 
@@ -68,7 +73,7 @@ def recipients_for(db: Session, booking: Booking, actor: User) -> list[Recipient
 def notify(
     db: Session,
     booking: Booking,
-    actor: User,
+    actor: User | None,
     kind: NotificationType,
     teacher_message: str,
     cr_message: str,

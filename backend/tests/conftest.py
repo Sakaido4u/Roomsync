@@ -17,6 +17,10 @@ from app.main import app
 from app.models import Role, Room, RoomType, SchoolClass, User
 from app.security import hash_password
 
+# The every-minute no-show timer would use the real database; tests run the
+# check themselves with a chosen "now" instead.
+settings.background_jobs = False
+
 PASSWORD = "pass1234"
 # Hashing is deliberately slow, so do it once and reuse it for every test user.
 PASSWORD_HASH = hash_password(PASSWORD)

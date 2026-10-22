@@ -314,6 +314,14 @@ class RescheduleIn(ReasonIn):
     end: dt.time
 
 
+class NoShowResponseIn(BaseModel):
+    """Answer to a no-show reminder (endpoint 18)."""
+
+    model_config = ConfigDict(json_schema_extra={"example": {"action": "keep"}})
+
+    action: Literal["keep", "release"]
+
+
 class BookingRef(BaseModel):
     booking_id: int
     booking_status: str

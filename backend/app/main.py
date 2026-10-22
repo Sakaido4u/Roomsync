@@ -17,10 +17,12 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import ApiError, register_error_handlers
 from app.init_db import create_tables
+from app.scheduler import start_scheduler
 from app.routers import (
     auth,
     booking_changes,
     bookings,
+    no_show_response,
     notifications,
     occupancy,
     rooms,
@@ -32,7 +34,11 @@ from app.routers import (
 async def lifespan(_: FastAPI):
     # Make sure all tables exist before the first request.
     create_tables()
+    # Start the every-minute no-show check; stop it when the server stops.
+    scheduler = start_scheduler()
     yield
+    if scheduler is not None:
+        scheduler.shutdown(wait=False)
 
 
 app = FastAPI(
@@ -75,3 +81,4 @@ app.include_router(occupancy.router)
 app.include_router(booking_changes.router)
 app.include_router(notifications.router)
 app.include_router(timetable.router)
+app.include_router(no_show_response.router)

@@ -212,6 +212,9 @@ class Booking(Base):
     )
     # Set when the no-show reminder goes out, so it is only sent once.
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set when the teacher or CR answers the reminder with "keep": the
+    # no-show check then leaves this booking alone.
+    no_show_kept_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
