@@ -4,26 +4,50 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   SafeAreaView,
+  ScrollView,
   View,
   Text,
+  TextInput,
   Pressable,
   StyleSheet,
 } from 'react-native';
 
-// Replace this with your laptop's current IPv4 address.
-const API_URL = 'http://192.168.1.7:8000/api/detect';
+import {
+  CameraSettings,
+  cleanSettings,
+  loadSettings,
+  saveSettings,
+  settingsProblem,
+} from '@/lib/camera-settings';
 
 type CameraFacing = 'back' | 'front';
+
+type DetectResult = {
+  room_id: string;
+  people_count: number;
+  timestamp: string;
+  backend_status?: 'synced' | 'not_synced';
+  backend_error?: string;
+};
 
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [count, setCount] = useState<number | null>(null);
   const [status, setStatus] = useState('Starting camera...');
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [facing, setFacing] = useState<CameraFacing>('back');
 
+  // Saved settings drive the requests; the draft is what is being typed.
+  const [settings, setSettings] = useState<CameraSettings>(loadSettings);
+  const [draft, setDraft] = useState<CameraSettings>(settings);
+  const [editing, setEditing] = useState(settingsProblem(settings) !== null);
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
+
   const cameraRef = useRef<CameraView>(null);
   const busy = useRef(false);
+
+  const settingsReady = settingsProblem(settings) === null;
 
   const handleCameraReady = useCallback(() => {
     setCameraReady(true);
@@ -37,8 +61,28 @@ export default function CameraScreen() {
     setStatus('Switching camera...');
   }, []);
 
+  const saveDraft = useCallback(() => {
+    const cleaned = cleanSettings(draft);
+    const problem = settingsProblem(cleaned);
+    if (problem) {
+      setSettingsMessage(problem);
+      return;
+    }
+    try {
+      saveSettings(cleaned);
+      setSettingsMessage(null);
+    } catch {
+      setSettingsMessage('Saved for now, but could not remember it for next time.');
+    }
+    setSettings(cleaned);
+    setDraft(cleaned);
+    setEditing(false);
+    setCount(null);
+    setSyncStatus(null);
+  }, [draft]);
+
   useEffect(() => {
-    if (!cameraReady || !permission?.granted) {
+    if (!cameraReady || !permission?.granted || !settingsReady) {
       return;
     }
 
@@ -65,13 +109,13 @@ export default function CameraScreen() {
 
         imageUri = photo.uri;
 
-        const response = await fetch(API_URL, {
+        const response = await fetch(`${settings.serverUrl}/api/detect`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            room_id: 'CSE-101',
+            room_id: settings.roomId,
             image_base64: photo.base64,
           }),
         });
@@ -80,15 +124,16 @@ export default function CameraScreen() {
           throw new Error(`YOLO server returned ${response.status}`);
         }
 
-        const result: {
-          room_id: string;
-          people_count: number;
-          timestamp: string;
-        } = await response.json();
+        const result: DetectResult = await response.json();
 
         if (active) {
           setCount(result.people_count);
           setStatus(`Last updated: ${new Date().toLocaleTimeString()}`);
+          setSyncStatus(
+            result.backend_status === 'synced'
+              ? 'Synced to RoomSync'
+              : `Not synced: ${result.backend_error ?? 'unknown reason'}`
+          );
         }
       } catch (error) {
         if (active) {
@@ -117,7 +162,7 @@ export default function CameraScreen() {
       active = false;
       clearInterval(timer);
     };
-  }, [cameraReady, facing, permission?.granted]);
+  }, [cameraReady, facing, permission?.granted, settings, settingsReady]);
 
   if (!permission) {
     return (
@@ -153,28 +198,100 @@ export default function CameraScreen() {
         />
       </View>
 
-      <View style={styles.panel}>
-        <Text style={styles.label}>PEOPLE DETECTED</Text>
-        <Text style={styles.count}>{count ?? '—'}</Text>
-        <Text style={styles.status}>{status}</Text>
+      <ScrollView
+        style={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+        {editing ? (
+          <View style={styles.panel}>
+            <Text style={styles.label} nativeID="roomLabel">ROOM ID</Text>
+            <TextInput
+              style={styles.input}
+              value={draft.roomId}
+              onChangeText={roomId => setDraft(d => ({ ...d, roomId }))}
+              placeholder="CSE-101"
+              placeholderTextColor="#5d6b82"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              accessibilityLabelledBy="roomLabel"
+            />
 
-        <Pressable
-          style={styles.button}
-          onPress={switchCamera}
-          accessibilityRole="button"
-          accessibilityLabel="Switch between front and rear cameras"
-        >
-          <Text style={styles.buttonText}>
-            Switch to {facing === 'back' ? 'Front' : 'Rear'} Camera
-          </Text>
-        </Pressable>
+            <Text style={[styles.label, styles.fieldGap]} nativeID="serverLabel">
+              INFERENCE SERVER (LAPTOP)
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={draft.serverUrl}
+              onChangeText={serverUrl => setDraft(d => ({ ...d, serverUrl }))}
+              placeholder="http://192.168.1.7:8001"
+              placeholderTextColor="#5d6b82"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              accessibilityLabelledBy="serverLabel"
+            />
+
+            {settingsMessage && (
+              <Text style={styles.warning}>{settingsMessage}</Text>
+            )}
+
+            <Pressable
+              style={styles.button}
+              onPress={saveDraft}
+              accessibilityRole="button"
+            >
+              <Text style={styles.buttonText}>Save and start</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.panel}>
+            <Text style={styles.label}>PEOPLE DETECTED · {settings.roomId}</Text>
+            <Text style={styles.count}>{count ?? '—'}</Text>
+            <Text style={styles.status}>{status}</Text>
+            {syncStatus && (
+              <Text
+                style={
+                  syncStatus.startsWith('Synced') ? styles.status : styles.warning
+                }
+              >
+                {syncStatus}
+              </Text>
+            )}
+
+            <Pressable
+              style={styles.button}
+              onPress={switchCamera}
+              accessibilityRole="button"
+              accessibilityLabel="Switch between front and rear cameras"
+            >
+              <Text style={styles.buttonText}>
+                Switch to {facing === 'back' ? 'Front' : 'Rear'} Camera
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => {
+                setDraft(settings);
+                setSettingsMessage(null);
+                setEditing(true);
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryButtonText}>
+                Change room or server
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         <Text style={styles.privacy}>
-          Development prototype: camera frames are sent to your laptop
-          for YOLO analysis. Temporary photo files are deleted after
-          each request.
+          Camera frames are sent to the laptop on this Wi-Fi network for
+          counting and are not stored there. The RoomSync backend only
+          receives yes/no and a head count, never an image. Temporary photo
+          files on this phone are deleted after each request.
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -212,6 +329,9 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+  scroll: {
+    flex: 1,
+  },
   panel: {
     backgroundColor: '#172235',
     borderRadius: 18,
@@ -225,6 +345,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  fieldGap: {
+    marginTop: 14,
+  },
+  input: {
+    alignSelf: 'stretch',
+    backgroundColor: '#0b1220',
+    color: '#ffffff',
+    borderColor: '#2b3a55',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 6,
+    fontSize: 16,
+  },
   count: {
     color: '#ffffff',
     fontSize: 56,
@@ -232,6 +367,12 @@ const styles = StyleSheet.create({
   },
   status: {
     color: '#56e0b5',
+    textAlign: 'center',
+    marginTop: 8,
+    fontSize: 12,
+  },
+  warning: {
+    color: '#ffb86b',
     textAlign: 'center',
     marginTop: 8,
     fontSize: 12,
@@ -253,11 +394,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
+  secondaryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginTop: 8,
+  },
+  secondaryButtonText: {
+    color: '#56e0b5',
+    fontSize: 14,
+  },
   privacy: {
     color: '#aab6ca',
     fontSize: 11,
     textAlign: 'center',
     marginTop: 16,
+    marginBottom: 12,
     lineHeight: 17,
   },
 });
