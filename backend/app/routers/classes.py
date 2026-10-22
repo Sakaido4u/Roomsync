@@ -14,10 +14,35 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import forbidden, invalid_input, not_found
 from app.models import Role, SchoolClass, User
-from app.schemas import ClassCrIn, ClassCrOut, PersonRef
-from app.security import get_current_user
+from app.schemas import ClassCrIn, ClassCrOut, ClassStudent, MyClassOut, PersonRef
+from app.security import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/classes", tags=["classes"])
+
+
+@router.get("/mine", response_model=list[MyClassOut])
+def my_classes(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_roles(Role.teacher, Role.admin)),
+) -> list[MyClassOut]:
+    """Classes I am class teacher of, with their students and CR (endpoint 25).
+
+    An empty list means the caller is not a class teacher.
+    """
+    classes = db.scalars(select(SchoolClass).where(SchoolClass.class_teacher_id == user.id)
+                         .order_by(SchoolClass.class_id)).all()
+    result = []
+    for school_class in classes:
+        students = db.scalars(select(User).where(
+            User.class_id == school_class.class_id, User.role == Role.student,
+            User.is_active.is_(True)).order_by(User.name)).all()
+        result.append(MyClassOut(
+            class_id=school_class.class_id, name=school_class.name,
+            department=school_class.department,
+            students=[ClassStudent(user_id=s.id, college_id=s.college_id, name=s.name,
+                                   is_cr=s.is_cr) for s in students],
+        ))
+    return result
 
 
 @router.put("/{class_id}/cr", response_model=ClassCrOut)

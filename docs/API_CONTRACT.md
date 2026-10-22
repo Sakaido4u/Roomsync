@@ -49,7 +49,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 
 ## Endpoint summary
 
-23 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each.
+25 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs.
 
 | # | Method and path | Who can call it | Purpose | Flow |
 | --- | --- | --- | --- | --- |
@@ -76,6 +76,8 @@ Every error has the same shape, so the dashboard handles them all the same way:
 | 21 | `GET /api/occupancy/{room_id}` | Logged in | Latest reading for one room | E7 |
 | 22 | `GET /api/notifications` | Logged in | My notifications | E5, E8 |
 | 23 | `POST /api/notifications/{id}/read` | Logged in | Mark a notification as read | E5, E8 |
+| 24 | `GET /api/users` | Admin, super admin | List people (e.g. teachers) by name | E1, E6 |
+| 25 | `GET /api/classes/mine` | Teacher, admin | Classes I am class teacher of, with students | E6 |
 
 ## Accounts and login
 
@@ -462,3 +464,36 @@ If the last reading is over 1 minute old or the camera is offline, `occupancy` i
 ### 23. Mark as read
 
 `POST /api/notifications/301/read`. Reply `200` `{ "notification_id": 301, "read": true }`. Users can only mark their own notifications.
+
+## People and classes
+
+### 24. List people (admin, super admin)
+
+`GET /api/users`, optional `?role=teacher` (any `role` value). Reply `200`, active users sorted by name:
+
+```json
+[
+  { "user_id": 9, "college_id": "T003", "name": "Prof. R. Rao", "role": "teacher", "department": "CSE" }
+]
+```
+
+Used to pick a teacher to make an admin, and to turn college IDs in a timetable file into `teacher_id`s. Others get `403 forbidden`.
+
+### 25. My classes (teacher, admin)
+
+`GET /api/classes/mine`. Reply `200`: the classes the caller is class teacher of, each with its active students sorted by name. An empty list means the caller is not a class teacher.
+
+```json
+[
+  {
+    "class_id": "CSE-7A",
+    "name": "CSE 7th sem A",
+    "department": "CSE",
+    "students": [
+      { "user_id": 12, "college_id": "1JS23CS044", "name": "Deeptanshu Pandey", "is_cr": true }
+    ]
+  }
+]
+```
+
+Students and the super admin get `403 forbidden`.

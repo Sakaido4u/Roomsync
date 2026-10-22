@@ -30,7 +30,8 @@ backend/
 │   │   ├── timetable.py        Timetable upload (endpoint 19)
 │   │   ├── no_show_response.py Keep or release after a no-show reminder (endpoint 18)
 │   │   ├── admin.py            Grant or remove admin rights (endpoints 5, 6)
-│   │   └── classes.py          Choose a class's CR (endpoint 7)
+│   │   ├── classes.py          My classes, choose a class's CR (endpoints 25, 7)
+│   │   └── users.py            List people (endpoint 24)
 │   ├── init_db.py    Creates (or resets) the tables
 │   └── seed.py       Adds demo users, rooms and bookings
 ├── tests/            Automated tests (pytest)
@@ -121,6 +122,7 @@ Passwords page and create a new one.
 | 3, 4 | Login, current user | Done |
 | 5, 6 | Grant or remove admin rights (super admin) | Done |
 | 7 | Choose a class's CR (class teacher) | Done |
+| 24, 25 | List people, my classes (for the dashboard) | Done |
 | 8, 9, 10, 11 | Room list, room status grid, room schedule, add room | Done |
 | 12, 13, 14 | Reserve, my bookings, cancel | Done |
 | 15, 16, 17 | Admin override, reschedule, remove (with reason) | Done |

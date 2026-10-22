@@ -44,6 +44,8 @@ def endpoints(world, booking_id):
         ("POST", "/api/admin/admins", {"user_id": teacher_id}, {"super_admin"}),
         ("DELETE", f"/api/admin/admins/{admin_id}", None, {"super_admin"}),
         ("PUT", "/api/classes/CSE-7A/cr", {"student_id": world["student"].id}, {"teacher"}),
+        ("GET", "/api/users", None, {"admin", "super_admin"}),
+        ("GET", "/api/classes/mine", None, {"teacher", "teacher2", "admin"}),
         ("POST", "/api/rooms", {"room_id": "HACK-1", "name": "Hack", "type": "classroom",
                                 "building": "Main", "capacity": 10, "department": "CSE"},
          {"admin"}),

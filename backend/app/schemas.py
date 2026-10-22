@@ -109,6 +109,37 @@ class ClassCrOut(BaseModel):
     cr: PersonRef | None
 
 
+class UserListItem(BaseModel):
+    """One person in the user list (endpoint 24)."""
+
+    user_id: int
+    college_id: str
+    name: str
+    role: str
+    department: str
+
+    @classmethod
+    def of(cls, user: User) -> "UserListItem":
+        return cls(user_id=user.id, college_id=user.college_id, name=user.name,
+                   role=user.role.value, department=user.department)
+
+
+class ClassStudent(BaseModel):
+    user_id: int
+    college_id: str
+    name: str
+    is_cr: bool
+
+
+class MyClassOut(BaseModel):
+    """A class the caller is class teacher of, with its students (endpoint 25)."""
+
+    class_id: str
+    name: str
+    department: str
+    students: list[ClassStudent]
+
+
 class BookingOut(BaseModel):
     booking_id: int
     room_id: str

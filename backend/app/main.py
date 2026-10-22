@@ -31,6 +31,7 @@ from app.routers import (
     occupancy,
     rooms,
     timetable,
+    users,
 )
 
 
@@ -91,6 +92,7 @@ app.include_router(timetable.router)
 app.include_router(no_show_response.router)
 app.include_router(admin.router)
 app.include_router(classes.router)
+app.include_router(users.router)
 
 # The web dashboard (plain HTML, CSS and JavaScript in ../frontend) is served
 # from the same server at http://127.0.0.1:8000/, so it can call /api/...
