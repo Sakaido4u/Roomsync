@@ -47,6 +47,69 @@ export function icon(name, size = 20) {
   return svg;
 }
 
+// --- Dialogs ----------------------------------------------------------------
+
+// Opens a pop-up dialog. The browser's <dialog> keeps keyboard focus inside
+// it, closes on Esc, and puts focus back where it was afterwards.
+//   const d = openDialog({ title: 'Remove booking', body: [...], actions: [...] });
+//   d.close();
+export function openDialog({ title, body, actions = [], wide = false }) {
+  const titleId = `dialog-title-${Math.random().toString(36).slice(2)}`;
+  const dialog = h('dialog', { class: `dialog${wide ? ' dialog--wide' : ''}`, 'aria-labelledby': titleId },
+    h('div', { class: 'dialog__head' },
+      h('h2', { id: titleId }, title),
+      h('button', { class: 'dialog__close', type: 'button', 'aria-label': 'Close', onclick: () => close() }, '✕')),
+    h('div', { class: 'dialog__body' }, body),
+    actions.length ? h('div', { class: 'dialog__actions' }, actions) : null);
+  document.body.append(dialog);
+  dialog.addEventListener('close', () => dialog.remove());
+  // Clicking the dark area outside the box closes it too.
+  dialog.addEventListener('click', event => { if (event.target === dialog) close(); });
+  dialog.showModal();
+  function close() { if (dialog.open) dialog.close(); }
+  return { el: dialog, close };
+}
+
+// "Are you sure?" with a clear consequence. Resolves true or false.
+export function confirmDialog({ title, message, confirmLabel, danger = false }) {
+  return new Promise(resolve => {
+    let answered = false;
+    const yes = h('button', { class: `btn ${danger ? 'btn--danger' : 'btn--primary'}`, type: 'button' }, confirmLabel);
+    const no = h('button', { class: 'btn btn--secondary', type: 'button' }, 'Go back');
+    const d = openDialog({ title, body: h('p', {}, message), actions: [no, yes] });
+    yes.addEventListener('click', () => { answered = true; resolve(true); d.close(); });
+    no.addEventListener('click', () => d.close());
+    d.el.addEventListener('close', () => { if (!answered) resolve(false); });
+    yes.focus();
+  });
+}
+
+// Runs an async action with a button showing "Please wait…" meanwhile.
+// Returns whatever the action returns; errors are passed on to the caller.
+export async function busy(button, work) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Please wait…';
+  try {
+    return await work();
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+export function loading(text = 'Loading…') {
+  return h('div', { class: 'loading', role: 'status' }, h('span', { class: 'spinner', 'aria-hidden': 'true' }), text);
+}
+
+export function emptyState(iconText, title, text, action = null) {
+  return h('div', { class: 'empty-state' },
+    h('div', { class: 'empty-state__icon', 'aria-hidden': 'true' }, iconText),
+    h('h2', {}, title),
+    text ? h('p', {}, text) : null,
+    action);
+}
+
 export function toast(message, kind = 'info') {
   const box = document.getElementById('toasts');
   const item = h('div', { class: `toast toast--${kind}` }, message);
@@ -135,6 +198,18 @@ export function niceDate(iso) {
   return new Date(y, m - 1, d).toLocaleDateString('en-IN', {
     weekday: 'short', day: 'numeric', month: 'short',
   });
+}
+
+// ISO date-time -> "3 Nov, 15:04" (or "Today, 15:04")
+export function niceDateTime(isoDateTime) {
+  const d = new Date(isoDateTime);
+  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (isoDate(d) === isoDate(new Date())) return `Today, ${time}`;
+  return `${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${time}`;
+}
+
+export function todayIso() {
+  return isoDate(new Date());
 }
 
 export function minutesOf(time) {

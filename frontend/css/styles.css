@@ -565,3 +565,219 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* =====================================================================
+ * Screens 3-7: dialogs, panels, lists, tabs and tables
+ * ===================================================================== */
+
+.btn--danger { background: var(--danger); color: #fff; }
+.btn--danger:hover:not(:disabled) { filter: brightness(0.92); }
+@media (prefers-color-scheme: dark) { .btn--danger { color: #1a0d0d; } }
+
+textarea { min-height: 84px; resize: vertical; }
+
+/* --- Dialogs ---------------------------------------------------------- */
+
+.dialog {
+  width: min(94vw, 480px);
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+.dialog--wide { width: min(94vw, 640px); }
+.dialog::backdrop { background: rgb(15 23 42 / 0.45); }
+.dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+.dialog__close {
+  width: 36px; height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.dialog__close:hover { background: var(--surface-2); color: var(--text); }
+.dialog__body { display: flex; flex-direction: column; gap: 14px; padding: 14px 20px 4px; }
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px 20px;
+}
+
+/* --- Panels and two-column layouts ------------------------------------ */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+.panel > h2 { margin-bottom: 4px; }
+.panel__intro { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
+
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.form-grid .span-2 { grid-column: 1 / -1; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+@media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+/* --- Booking summary box (used in pop-ups and lists) -------------------- */
+
+.booking-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 0.9rem;
+}
+.booking-box__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.booking-box dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.booking-box dt { color: var(--muted); }
+.booking-box dd { margin: 0; font-weight: 550; overflow-wrap: anywhere; }
+
+.choice-list { display: flex; flex-direction: column; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.choice-list .btn { justify-content: space-between; width: 100%; }
+
+/* --- Lists of bookings / notifications ---------------------------------- */
+
+.list { display: flex; flex-direction: column; gap: 10px; padding: 0; margin: 0; list-style: none; }
+.list__day { margin: 18px 0 8px; font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.list__day:first-child { margin-top: 0; }
+
+.row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.row__time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.row__main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.row__title { font-weight: 650; overflow-wrap: anywhere; }
+.row__meta { color: var(--muted); font-size: 0.875rem; }
+.row__actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+@media (max-width: 640px) {
+  .row { grid-template-columns: 1fr; gap: 8px; }
+  .row__actions { justify-content: flex-start; }
+}
+
+.note {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.note--unread { border-left: 4px solid var(--accent); }
+.note__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 1rem;
+}
+.note__main { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.note__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.note__type { font-weight: 700; }
+.note__time { color: var(--muted); font-size: 0.82rem; }
+.note__unread { font-size: 0.75rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; }
+.note__message { overflow-wrap: anywhere; }
+.note__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* --- Tabs (segmented buttons) -------------------------------------------- */
+
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.tabs button {
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tabs button[aria-pressed="true"], .tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+
+/* --- Tables ------------------------------------------------------------------ */
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--surface-2); font-weight: 650; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+
+/* --- People list (admin rights, class CR) ------------------------------- */
+
+.person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.person:last-child { border-bottom: 0; }
+.person__name { font-weight: 600; }
+.person__meta { color: var(--muted); font-size: 0.85rem; }
+.person label { display: flex; align-items: center; gap: 12px; cursor: pointer; flex: 1; }
+.person input[type="radio"] { width: 18px; height: 18px; min-height: 0; accent-color: var(--accent); }
+.people { padding: 0; margin: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.loading { display: flex; align-items: center; gap: 10px; padding: 24px 0; color: var(--muted); }
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.file-drop { padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }

@@ -9,7 +9,12 @@ import { api, clearSession, getSession } from './api.js';
 import { ROLE_LABELS, h, icon, toast } from './ui.js';
 import { renderLogin } from './views/login.js';
 import { renderRooms } from './views/rooms.js';
-import { renderPlaceholder } from './views/placeholder.js';
+import { renderReserve } from './views/reserve.js';
+import { renderBookings } from './views/bookings.js';
+import { renderNotifications } from './views/notifications.js';
+import { renderAdmin } from './views/admin.js';
+import { renderAdmins } from './views/admins.js';
+import { renderMyClass } from './views/myclass.js';
 
 const main = document.getElementById('main');
 const header = document.getElementById('site-header');
@@ -28,12 +33,12 @@ const MENU = [
 
 const SCREENS = {
   '/rooms': renderRooms,
-  '/reserve': ctx => renderPlaceholder(ctx, 'Reserve a room'),
-  '/bookings': ctx => renderPlaceholder(ctx, 'My bookings'),
-  '/notifications': ctx => renderPlaceholder(ctx, 'Notifications'),
-  '/admin': ctx => renderPlaceholder(ctx, 'Admin'),
-  '/admins': ctx => renderPlaceholder(ctx, 'Admin rights'),
-  '/class': ctx => renderPlaceholder(ctx, 'My class'),
+  '/reserve': renderReserve,
+  '/bookings': renderBookings,
+  '/notifications': renderNotifications,
+  '/admin': renderAdmin,
+  '/admins': renderAdmins,
+  '/class': renderMyClass,
 };
 
 let cleanup = null;

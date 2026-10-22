@@ -6,6 +6,7 @@
 // every 5 seconds so camera changes show up live.
 
 import { ApiError, api, query } from '../api.js';
+import { adminButtons } from '../bookings-ui.js';
 import {
   ROOM_TYPE_LABELS, alertBox, bookingTag, h, hhmm, isoDate, minutesOf, niceDate, occupancyTag,
 } from '../ui.js';
@@ -210,7 +211,15 @@ export function renderRooms({ main, params, user }) {
         ? h('div', { class: 'room-card__actions' },
           h('a', { class: 'btn btn--primary btn--small', href: reserveLink,
             'aria-label': `Reserve ${room.room_id}` }, 'Reserve'))
+        : null,
+      b && user.role === 'admin' && !bookingEnded(b)
+        ? h('div', { class: 'room-card__actions' },
+          adminButtons({ ...b, room_id: room.room_id, booking_status: room.booking_status }, () => load(false)))
         : null);
+  }
+
+  function bookingEnded(b) {
+    return new Date(`${b.date}T${b.end}:00+05:30`) <= new Date();
   }
 
   loadBuildings();
