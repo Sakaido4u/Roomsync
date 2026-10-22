@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import ApiError, register_error_handlers
 from app.init_db import create_tables
-from app.routers import auth, bookings, rooms
+from app.routers import auth, booking_changes, bookings, notifications, occupancy, rooms
 
 
 @asynccontextmanager
@@ -63,3 +63,6 @@ def health(db: Session = Depends(get_db)) -> dict:
 app.include_router(auth.router)
 app.include_router(bookings.router)
 app.include_router(rooms.router)
+app.include_router(occupancy.router)
+app.include_router(booking_changes.router)
+app.include_router(notifications.router)

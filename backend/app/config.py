@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     no_show_release_after: int = 10
     # A camera reading older than this counts as "No camera data".
     occupancy_stale_seconds: int = 60
+    # Camera readings arrive every few seconds per room, so old ones are
+    # deleted after this many days to keep the database small.
+    occupancy_keep_days: int = 7
 
     @field_validator("jwt_secret")
     @classmethod
@@ -58,6 +61,17 @@ class Settings(BaseSettings):
             raise ValueError(
                 "JWT_SECRET in .env must be a random string of at least 32 characters. "
                 "Make one with:  python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+        return value
+
+    @field_validator("device_key")
+    @classmethod
+    def _device_key_long_enough(cls, value: str) -> str:
+        # Anyone with this key can send fake camera readings.
+        if len(value) < 16 or value.startswith("change-me"):
+            raise ValueError(
+                "DEVICE_KEY in .env must be a random string of at least 16 characters. "
+                "Make one with:  python -c \"import secrets; print(secrets.token_urlsafe(24))\""
             )
         return value
 

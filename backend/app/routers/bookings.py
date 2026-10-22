@@ -43,13 +43,17 @@ def overlaps(start: dt.datetime, end: dt.datetime):
     )
 
 
-def find_clash(db: Session, room_id: str, start: dt.datetime, end: dt.datetime) -> Booking | None:
-    return db.scalar(
-        select(Booking)
-        .where(Booking.room_id == room_id, overlaps(start, end))
-        .order_by(Booking.start_at)
-        .limit(1)
-    )
+def find_clash(db: Session, room_id: str, start: dt.datetime, end: dt.datetime,
+               exclude_id: int | None = None) -> Booking | None:
+    """The first active booking in this room that overlaps the slot.
+
+    exclude_id skips one booking, e.g. the one being rescheduled, so it
+    does not clash with its own old time.
+    """
+    query = select(Booking).where(Booking.room_id == room_id, overlaps(start, end))
+    if exclude_id is not None:
+        query = query.where(Booking.id != exclude_id)
+    return db.scalar(query.order_by(Booking.start_at).limit(1))
 
 
 def free_rooms(db: Session, start: dt.datetime, end: dt.datetime, wanted: Room) -> list[RoomRef]:
@@ -64,9 +68,10 @@ def free_rooms(db: Session, start: dt.datetime, end: dt.datetime, wanted: Room) 
     return [RoomRef(room_id=r.room_id, name=r.name) for r in rooms]
 
 
-def conflict_error(db: Session, room: Room, start: dt.datetime, end: dt.datetime) -> ApiError:
+def conflict_error(db: Session, room: Room, start: dt.datetime, end: dt.datetime,
+                   exclude_id: int | None = None) -> ApiError:
     """The 409 reply that the dashboard turns into the "already booked" pop-up."""
-    clash = find_clash(db, room.room_id, start, end)
+    clash = find_clash(db, room.room_id, start, end, exclude_id)
     existing = None
     if clash is not None:
         out = BookingOut.of(clash)

@@ -10,7 +10,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
-from app.models import Booking, Room, RoomType, User
+from app.models import Booking, CameraStatus, Room, RoomType, User
 from app.timeutil import hhmm, to_ist
 
 
@@ -210,3 +210,123 @@ class RoomStatusOut(BaseModel):
     @field_serializer("last_reading_at")
     def _last_reading_at(self, value: dt.datetime | None) -> str | None:
         return to_ist(value).isoformat(timespec="seconds") if value else None
+
+
+# ---------------------------------------------------------------------------
+# Occupancy (camera readings)
+# ---------------------------------------------------------------------------
+
+class OccupancyIn(BaseModel):
+    """What the camera program sends every few seconds (endpoint 20)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "room_id": "CSE-101",
+                "people_detected": True,
+                "head_count": 23,
+                "camera_status": "online",
+                "time": "2026-11-03T15:04:10+05:30",
+            }
+        }
+    )
+
+    room_id: str = Field(min_length=1)
+    people_detected: bool | None
+    head_count: int | None = Field(None, ge=0, le=1000)
+    camera_status: CameraStatus
+    time: dt.datetime
+
+
+class OccupancyOut(BaseModel):
+    """Latest reading for one room (endpoint 21)."""
+
+    room_id: str
+    occupancy: str
+    head_count: int | None
+    last_reading_at: dt.datetime | None
+
+    @field_serializer("last_reading_at")
+    def _last_reading_at(self, value: dt.datetime | None) -> str | None:
+        return to_ist(value).isoformat(timespec="seconds") if value else None
+
+
+# ---------------------------------------------------------------------------
+# Admin changes to bookings (endpoints 15-17)
+# ---------------------------------------------------------------------------
+
+class ReasonIn(BaseModel):
+    """Body for removing a booking (endpoint 17)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"reason": "Department event in this room"}}
+    )
+
+    # Optional here so a missing reason gives the contract's
+    # "reason_required" error instead of a generic one.
+    reason: str | None = Field(None, max_length=500)
+
+
+class OverrideIn(ReasonIn):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"purpose": "Placement drive briefing", "class_id": None,
+                        "reason": "Company visit moved to today"}
+        }
+    )
+
+    purpose: str = Field(min_length=1, max_length=200)
+    class_id: str | None = None
+
+
+class RescheduleIn(ReasonIn):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"room_id": "CSE-102", "date": "2030-01-07", "start": "15:00",
+                        "end": "16:00", "reason": "CSE-101 projector under repair"}
+        }
+    )
+
+    room_id: str = Field(min_length=1)
+    date: dt.date
+    start: dt.time
+    end: dt.time
+
+
+class BookingRef(BaseModel):
+    booking_id: int
+    booking_status: str
+
+
+class OverrideOut(BaseModel):
+    old_booking: BookingRef
+    new_booking: BookingRef
+    notified: list[str]
+
+
+class BookingChangeOut(BookingOut):
+    """A booking plus who was told about the change (endpoints 16, 17)."""
+
+    notified: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Notifications (endpoints 22, 23)
+# ---------------------------------------------------------------------------
+
+class NotificationOut(BaseModel):
+    notification_id: int
+    type: str
+    message: str
+    booking_id: int | None
+    read: bool
+    created_at: dt.datetime
+
+    @field_serializer("created_at")
+    def _created_at(self, value: dt.datetime) -> str:
+        return to_ist(value).isoformat(timespec="seconds")
+
+
+class NotificationReadOut(BaseModel):
+    notification_id: int
+    read: bool
