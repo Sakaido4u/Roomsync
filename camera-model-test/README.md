@@ -15,14 +15,17 @@ RoomSync's camera module uses an Expo React Native app and a local Python FastAP
 
 ```text
 Roomsync/
-├── README.md
 ├── RoomSyncMobile/       # Expo / React Native mobile app
-│   └── app/
-│       └── index.tsx
+│   └── src/
+│       └── app/
+│           └── index.tsx
+├── backend/              # RoomSync FastAPI backend
+├── docs/                 # API contract
 └── camera-model-test/    # Python YOLO inference server
+    ├── README.md         # This file
     ├── inference_server.py
-    ├── test_yolo.py      # Optional standalone webcam test, if present
-    └── yolov8n.pt        # Model weights (downloaded or provided separately)
+    ├── test_yolo.py      # Optional standalone webcam test
+    └── yolov8n.pt        # YOLOv8 nano model weights
 ```
 
 ## Requirements
@@ -88,7 +91,7 @@ ipconfig
 
 Under the active Wi-Fi adapter, find **IPv4 Address**. The phone app must use this address, not `127.0.0.1`.
 
-Open `RoomSyncMobile/app/index.tsx` and update this line to match your current laptop IPv4 address:
+Open `RoomSyncMobile/src/app/index.tsx` and update this line to match your current laptop IPv4 address:
 
 ```tsx
 const API_URL = 'http://192.168.1.7:8000/api/detect';
