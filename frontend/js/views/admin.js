@@ -9,10 +9,11 @@ import {
   alertBox, bookingTag, busy, confirmDialog, emptyState, h, loading, niceDate, toast, todayIso,
 } from '../ui.js';
 
+// Short labels so the three tabs fit on one line on a phone.
 const SECTIONS = [
-  ['change', 'Change a booking'],
-  ['timetable', 'Upload timetable'],
-  ['room', 'Add a room'],
+  ['change', 'Change bookings'],
+  ['timetable', 'Timetable'],
+  ['room', 'Add room'],
 ];
 
 export function renderAdmin({ main, params }) {
@@ -259,7 +260,7 @@ function timetableSection(content) {
       reply.skipped_dates.length
         ? h('div', { class: 'stack' },
           h('h3', {}, `Skipped weeks: the room was already booked (${reply.skipped_dates.length})`),
-          h('p', { class: 'muted' }, 'The other weeks of these classes were saved. Decide what to move, then use "Change a booking".'),
+          h('p', { class: 'muted' }, 'The other weeks of these classes were saved. Decide what to move, then use "Change bookings".'),
           h('div', { class: 'table-wrap' }, table(['Date', 'Room', 'Class', 'Already booked by', 'For'],
             reply.skipped_dates.map(s => [
               `${niceDate(s.date)}, ${s.start}–${s.end}`, s.room_id, s.entry,

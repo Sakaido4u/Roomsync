@@ -290,7 +290,7 @@ cd RoomSyncMobile; npx expo start
 
 ### 6. Extras if there is time
 
-- **Admin → Upload timetable**: download the template, upload it, and show
+- **Admin → Timetable**: download the template, upload it, and show
   the clash and skipped-week tables.
 - **Admin rights** as `SA001`: make a teacher an admin. The server accepts
   their admin actions at once; their menu shows **Admin** within 30 seconds,
