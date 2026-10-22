@@ -167,6 +167,9 @@ class SetupCode(Base):
     code_hash: Mapped[str] = mapped_column(String(255))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Wrong guesses so far. After MAX_CODE_ATTEMPTS the code stops working,
+    # so its 1,000,000 possible values cannot simply be tried one by one.
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

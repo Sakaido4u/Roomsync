@@ -70,6 +70,31 @@ class LoginOut(BaseModel):
     user: UserOut
 
 
+class RequestSetupIn(BaseModel):
+    """Ask for a one-time setup code by email (endpoint 1)."""
+
+    model_config = ConfigDict(json_schema_extra={"example": {"college_id": "1JS23CS044"}})
+
+    college_id: str = Field(min_length=1, max_length=30)
+
+
+class SetPasswordIn(BaseModel):
+    """Set a password with the emailed code (endpoint 2)."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"example": {"college_id": "1JS23CS044", "code": "483920",
+                                       "new_password": "at-least-8-chars"}}
+    )
+
+    college_id: str = Field(min_length=1, max_length=30)
+    code: str = Field(pattern=r"^\d{6}$")
+    new_password: str = Field(min_length=8)
+
+
+class MessageOut(BaseModel):
+    message: str
+
+
 # ---------------------------------------------------------------------------
 # Bookings
 # ---------------------------------------------------------------------------

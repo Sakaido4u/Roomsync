@@ -105,6 +105,8 @@ Reply `200`, always the same so nobody can test which IDs exist:
 
 Reply `200` `{ "message": "Password set. You can now log in." }`. Wrong or expired code: `400 invalid_input`.
 
+Rules: the code is 6 digits, stored hashed, expires after 15 minutes and works once. Asking for a new code cancels the old one, and at most one code is emailed per minute per account. After 5 wrong tries a code stops working (ask for a new one). `new_password` must be at least 8 characters (`400 invalid_input`, which does not count as a wrong try). An unknown ID gets the same `400` as a wrong code. The same two endpoints also work to reset a forgotten password.
+
 ### 3. Log in
 
 `POST /api/auth/login`

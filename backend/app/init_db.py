@@ -25,6 +25,7 @@ UPGRADES = [
     "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS no_show_kept_at TIMESTAMPTZ",
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_users_one_cr_per_class ON users (class_id) "
     "WHERE is_cr",
+    "ALTER TABLE setup_codes ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0",
 ]
 
 

@@ -21,7 +21,7 @@ backend/
 │   ├── no_show.py    The no-show check: remind, then release empty booked rooms
 │   ├── scheduler.py  Runs the no-show check every minute while the server is up
 │   ├── routers/
-│   │   ├── auth.py      Login, current user (endpoints 3, 4)
+│   │   ├── auth.py      Setup codes, login, current user (endpoints 1-4)
 │   │   ├── bookings.py  Reserve, my bookings, cancel (endpoints 12-14)
 │   │   ├── rooms.py     Room list, status grid, schedule, add room (endpoints 8-11)
 │   │   ├── occupancy.py Camera readings in, latest reading out (endpoints 20, 21)
@@ -82,6 +82,7 @@ Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 
 | # | Endpoint | Status |
 | --- | --- | --- |
+| 1, 2 | First-login setup codes (emailed) | Done |
 | 3, 4 | Login, current user | Done |
 | 5, 6 | Grant or remove admin rights (super admin) | Done |
 | 7 | Choose a class's CR (class teacher) | Done |
@@ -92,7 +93,6 @@ Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 | 22, 23 | My notifications, mark as read | Done |
 | 18 | No-show check (every minute) and answering the reminder | Done |
 | 19 | Timetable upload | Done |
-| 1, 2 | First-login setup codes | To do |
 
 ## For the camera program
 
