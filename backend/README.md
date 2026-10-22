@@ -12,8 +12,15 @@ backend/
 │   ├── config.py     Reads settings from .env
 │   ├── database.py   Connection to PostgreSQL
 │   ├── models.py     The database tables and the no-overlap rule
+│   ├── schemas.py    Request/reply shapes from the API contract
 │   ├── errors.py     Error replies in the contract's format
-│   ├── security.py   Password hashing
+│   ├── security.py   Passwords, login tokens, role checks
+│   ├── timeutil.py   Date + "HH:MM" <-> India-time date-times
+│   ├── occupancy.py  Latest camera reading -> people_detected / not_detected / no_data
+│   ├── routers/
+│   │   ├── auth.py      Login, current user (endpoints 3, 4)
+│   │   ├── bookings.py  Reserve, my bookings, cancel (endpoints 12-14)
+│   │   └── rooms.py     Room list, status grid, schedule, add room (endpoints 8-11)
 │   ├── init_db.py    Creates (or resets) the tables
 │   └── seed.py       Adds demo users, rooms and bookings
 ├── tests/            Automated tests (pytest)
@@ -52,6 +59,23 @@ CREATE EXTENSION btree_gist;
 Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 `T001` (admin/HOD), `T002` and `T003` (teachers), `1JS23CS044` (student, CR),
 `1JS23CS039` (student).
+
+## Trying logged-in endpoints on /docs
+
+1. Open `POST /api/auth/login` → **Try it out**, enter
+   `{"college_id": "T002", "password": "roomsync123"}` → **Execute**.
+2. Copy the `token` value from the reply (without the quotes).
+3. Click the **Authorize** button at the top of the page, paste the token, **Authorize**.
+4. Every request from the page now includes your login, e.g. `POST /api/bookings`.
+
+## Done so far (API contract)
+
+| # | Endpoint | Status |
+| --- | --- | --- |
+| 3, 4 | Login, current user | Done |
+| 8, 9, 10, 11 | Room list, room status grid, room schedule, add room | Done |
+| 12, 13, 14 | Reserve, my bookings, cancel | Done |
+| others | Setup codes, admin rights, CR, admin changes, timetable, occupancy, notifications | To do |
 
 After changing `models.py`, run `python -m app.init_db --reset` and then
 `python -m app.seed`, because existing tables are not updated automatically.

@@ -8,6 +8,7 @@ team member's laptop without changes.
 from datetime import timedelta, timezone
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The .env file sits in the backend/ folder, next to requirements.txt.
@@ -48,6 +49,17 @@ class Settings(BaseSettings):
     no_show_release_after: int = 10
     # A camera reading older than this counts as "No camera data".
     occupancy_stale_seconds: int = 60
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _secret_long_enough(cls, value: str) -> str:
+        # A short secret can be guessed, letting someone forge an admin login.
+        if len(value) < 32 or value.startswith("change-me"):
+            raise ValueError(
+                "JWT_SECRET in .env must be a random string of at least 32 characters. "
+                "Make one with:  python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+        return value
 
 
 settings = Settings()

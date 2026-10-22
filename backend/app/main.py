@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import ApiError, register_error_handlers
 from app.init_db import create_tables
+from app.routers import auth, bookings, rooms
 
 
 @asynccontextmanager
@@ -57,7 +58,8 @@ def health(db: Session = Depends(get_db)) -> dict:
     return {"status": "ok", "database": "connected"}
 
 
-# The endpoints from the API contract (auth, rooms, bookings, ...) are
-# added here as each part is built, e.g.:
-#   from app.routers import bookings
-#   app.include_router(bookings.router)
+# Endpoints from the API contract, one router per area. New areas
+# (rooms, admin, occupancy, ...) get added to this list as they are built.
+app.include_router(auth.router)
+app.include_router(bookings.router)
+app.include_router(rooms.router)
