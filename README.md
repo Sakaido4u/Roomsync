@@ -62,6 +62,7 @@ All commands are for Windows PowerShell.
 
 - Backend: login, rooms, room status grid, bookings, admin changes with
   reasons, camera readings and notifications are done and tested.
-- Camera module: works on its own; not yet sending readings to the backend.
+- Camera module: the phone app and inference server send live people
+  counts to the backend, which shows them on the room status grid.
 - Still to do: timetable upload, no-show check, admin rights, choosing the CR,
   first-login setup codes, and the web frontend.

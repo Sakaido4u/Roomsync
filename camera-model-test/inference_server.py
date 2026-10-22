@@ -1,8 +1,8 @@
-
 import base64
 import binascii
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Lock
 
 import cv2
@@ -11,18 +11,23 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from ultralytics import YOLO
 
+from backend_sync import BackendSync
+
 app = FastAPI(title="RoomSync Local YOLO Inference")
 
 # Load the model once when the server starts.
 model = YOLO("yolov8n.pt")
 model_lock = Lock()
 
+# Backend address and device key come from camera-model-test/.env.
+backend_sync = BackendSync.from_env_file(Path(__file__).with_name(".env"))
+
 MAX_IMAGE_BYTES = 2_000_000
 
 
 class FrameRequest(BaseModel):
     image_base64: str = Field(min_length=1)
-    room_id: str = Field(default="CSE-101", max_length=50)
+    room_id: str = Field(min_length=1, max_length=50)
 
 
 @app.get("/health")
@@ -72,14 +77,18 @@ def detect_people(payload: FrameRequest):
             )
 
             people_count = len(results[0].boxes)
-
-        return {
-            "room_id": payload.room_id,
-            "people_count": people_count,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
     finally:
         # Release references; never save the image or detections.
         del frame
         del buffer
         del image_bytes
+
+    # Only yes/no and the count go to the backend, never the image.
+    sync_result = backend_sync.send(payload.room_id, people_count)
+
+    return {
+        "room_id": payload.room_id,
+        "people_count": people_count,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        **sync_result,
+    }
