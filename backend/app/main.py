@@ -19,9 +19,11 @@ from app.errors import ApiError, register_error_handlers
 from app.init_db import create_tables
 from app.scheduler import start_scheduler
 from app.routers import (
+    admin,
     auth,
     booking_changes,
     bookings,
+    classes,
     no_show_response,
     notifications,
     occupancy,
@@ -82,3 +84,5 @@ app.include_router(booking_changes.router)
 app.include_router(notifications.router)
 app.include_router(timetable.router)
 app.include_router(no_show_response.router)
+app.include_router(admin.router)
+app.include_router(classes.router)

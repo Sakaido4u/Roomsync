@@ -150,6 +150,9 @@ class User(Base):
     __table_args__ = (
         # Only students can be CRs.
         CheckConstraint("NOT is_cr OR role = 'student'", name="ck_users_cr_is_student"),
+        # At most one CR per class: PostgreSQL refuses a second one.
+        Index("ux_users_one_cr_per_class", "class_id", unique=True,
+              postgresql_where=text("is_cr")),
     )
 
 

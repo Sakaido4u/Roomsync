@@ -43,6 +43,23 @@ class UserOut(BaseModel):
         )
 
 
+class AdminGrantIn(BaseModel):
+    """Give a teacher admin rights (endpoint 5)."""
+
+    model_config = ConfigDict(json_schema_extra={"example": {"user_id": 3}})
+
+    user_id: int
+
+
+class ClassCrIn(BaseModel):
+    """Choose the CR of a class (endpoint 7). null clears it."""
+
+    model_config = ConfigDict(json_schema_extra={"example": {"student_id": 5}})
+
+    # Required, but may be null: leaving it out by mistake should not clear the CR.
+    student_id: int | None
+
+
 class LoginIn(BaseModel):
     college_id: str = Field(min_length=1, examples=["T002"])
     password: str = Field(min_length=1, examples=["roomsync123"])
@@ -60,6 +77,11 @@ class LoginOut(BaseModel):
 class PersonRef(BaseModel):
     user_id: int
     name: str
+
+
+class ClassCrOut(BaseModel):
+    class_id: str
+    cr: PersonRef | None
 
 
 class BookingOut(BaseModel):

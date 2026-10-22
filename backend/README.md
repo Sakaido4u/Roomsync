@@ -28,7 +28,9 @@ backend/
 │   │   ├── booking_changes.py  Admin override, reschedule, remove (endpoints 15-17)
 │   │   ├── notifications.py    My notifications, mark as read (endpoints 22, 23)
 │   │   ├── timetable.py        Timetable upload (endpoint 19)
-│   │   └── no_show_response.py Keep or release after a no-show reminder (endpoint 18)
+│   │   ├── no_show_response.py Keep or release after a no-show reminder (endpoint 18)
+│   │   ├── admin.py            Grant or remove admin rights (endpoints 5, 6)
+│   │   └── classes.py          Choose a class's CR (endpoint 7)
 │   ├── init_db.py    Creates (or resets) the tables
 │   └── seed.py       Adds demo users, rooms and bookings
 ├── tests/            Automated tests (pytest)
@@ -81,6 +83,8 @@ Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 | # | Endpoint | Status |
 | --- | --- | --- |
 | 3, 4 | Login, current user | Done |
+| 5, 6 | Grant or remove admin rights (super admin) | Done |
+| 7 | Choose a class's CR (class teacher) | Done |
 | 8, 9, 10, 11 | Room list, room status grid, room schedule, add room | Done |
 | 12, 13, 14 | Reserve, my bookings, cancel | Done |
 | 15, 16, 17 | Admin override, reschedule, remove (with reason) | Done |
@@ -88,7 +92,7 @@ Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 | 22, 23 | My notifications, mark as read | Done |
 | 18 | No-show check (every minute) and answering the reminder | Done |
 | 19 | Timetable upload | Done |
-| others | Setup codes, admin rights, CR | To do |
+| 1, 2 | First-login setup codes | To do |
 
 ## For the camera program
 
