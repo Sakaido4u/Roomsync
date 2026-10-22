@@ -5,7 +5,7 @@
 // <main> element and may return a "cleanup" function (used to stop timers
 // such as the 5-second live refresh when you leave the screen).
 
-import { api, clearSession, getSession } from './api.js';
+import { api, clearSession, getSession, saveSession } from './api.js';
 import { ROLE_LABELS, h, icon, toast } from './ui.js';
 import { renderLogin } from './views/login.js';
 import { renderRooms } from './views/rooms.js';
@@ -92,6 +92,30 @@ function renderHeader(user, path) {
   refreshUnread();
 }
 
+// Roles can change while someone is logged in (admin rights granted or
+// removed, a new CR). The server always uses the current role; this keeps
+// the menu in step with it.
+async function refreshUser() {
+  const session = getSession();
+  if (!session) return;
+  try {
+    const user = await api('/auth/me');
+    const changed = ['role', 'is_cr', 'name'].some(key => user[key] !== session.user[key]);
+    if (!changed) return;
+    saveSession(session.token, user);
+    const { path } = currentRoute();
+    const item = MENU.find(m => m.path === path);
+    if (item && !allowed(item, user)) {
+      go('/rooms');
+    } else {
+      renderHeader(user, path);
+    }
+    toast(`Your account changed: you are now ${ROLE_LABELS[user.role]}${user.is_cr ? ' (CR)' : ''}.`);
+  } catch {
+    // A 401 here logs out through api(); other errors can wait for the next check.
+  }
+}
+
 async function refreshUnread() {
   const badge = document.getElementById('bell-count');
   const bell = document.getElementById('bell');
@@ -138,7 +162,10 @@ function show() {
   if (!screen || (item && !allowed(item, session.user))) return go('/rooms');
 
   renderHeader(session.user, path);
-  if (!unreadTimer) unreadTimer = setInterval(refreshUnread, 30000);
+  if (!unreadTimer) {
+    unreadTimer = setInterval(() => { refreshUnread(); refreshUser(); }, 30000);
+    refreshUser();
+  }
   main.replaceChildren();
   cleanup = screen({ main, params, user: session.user, refreshUnread }) || null;
   main.focus({ preventScroll: true });
