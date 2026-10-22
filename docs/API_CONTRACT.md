@@ -135,6 +135,8 @@ Reply `200`:
 
 Wrong ID or password: `401 not_logged_in` with the same message for both.
 
+After 10 wrong logins for one college ID within 15 minutes, that ID gets `401 not_logged_in` with the message "Too many failed logins for this ID. Try again in N minutes, ..." even with the right password, until the oldest of those tries is 15 minutes old. This applies to made-up IDs too, so it reveals nothing. A successful login, or setting a new password with a setup code (endpoints 1, 2), clears the count.
+
 ### 4. Current user
 
 `GET /api/auth/me` returns the same `user` object as login.

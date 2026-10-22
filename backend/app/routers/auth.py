@@ -15,15 +15,16 @@ guessed by trying all 1,000,000 values.
 
 import datetime as dt
 import logging
+import math
 import secrets
 
 from fastapi import APIRouter, BackgroundTasks, Depends
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.errors import invalid_input, not_logged_in
-from app.models import SetupCode, User
+from app.models import LoginFailure, SetupCode, User
 from app.notify import Email, email_enabled, send_emails
 from app.schemas import LoginIn, LoginOut, MessageOut, RequestSetupIn, SetPasswordIn, UserOut
 from app.security import (
@@ -42,7 +43,10 @@ log = logging.getLogger("roomsync.auth")
 # login page to find out which college IDs exist.
 BAD_LOGIN = "Wrong college ID or password."
 
-SETUP_REPLY = "If this ID exists, a setup code has been sent to its college email."
+MAX_FAILED_LOGINS = 10
+LOGIN_LOCKOUT = dt.timedelta(minutes=15)
+
+SETUP_REPLY ="If this ID exists, a setup code has been sent to its college email."
 BAD_CODE = "Wrong or expired code. Ask for a new code if needed."
 SETUP_CODE_MINUTES = 15
 MAX_CODE_ATTEMPTS = 5
@@ -56,11 +60,40 @@ _DUMMY_HASH = hash_password("000000")
 
 @router.post("/login", response_model=LoginOut)
 def login(body: LoginIn, db: Session = Depends(get_db)) -> LoginOut:
-    """Log in with college ID and password. Returns a token for later requests."""
-    user = db.scalar(select(User).where(User.college_id == body.college_id.strip()))
+    """Log in with college ID and password. Returns a token for later requests.
+
+    After MAX_FAILED_LOGINS wrong tries for one college ID within
+    LOGIN_LOCKOUT, that ID is refused (even with the right password) until
+    the oldest of those tries is LOGIN_LOCKOUT old, so passwords cannot be
+    guessed by trying many. A successful login or a new password clears it.
+    """
+    college_id = body.college_id.strip()
+    now = now_ist()
+    # Housekeeping: forget failures that no longer count, for every ID.
+    db.execute(delete(LoginFailure).where(LoginFailure.time <= now - LOGIN_LOCKOUT))
+    failures = db.scalars(select(LoginFailure.time).where(
+        LoginFailure.college_id == college_id).order_by(LoginFailure.time)).all()
+    if len(failures) >= MAX_FAILED_LOGINS:
+        db.commit()
+        wait = failures[-MAX_FAILED_LOGINS] + LOGIN_LOCKOUT - now
+        minutes = max(1, math.ceil(wait.total_seconds() / 60))
+        raise not_logged_in(f"Too many failed logins for this ID. Try again in {minutes} "
+                            f"minute{'s' if minutes != 1 else ''}, or ask for a setup code "
+                            f"to set a new password.")
+
+    user = db.scalar(select(User).where(User.college_id == college_id))
     if user is None or not user.is_active or not verify_password(body.password, user.password_hash):
+        db.add(LoginFailure(college_id=college_id, time=now))
+        db.commit()
         raise not_logged_in(BAD_LOGIN)
+
+    clear_login_failures(db, college_id)
+    db.commit()
     return LoginOut(token=create_token(user), user=UserOut.of(user))
+
+
+def clear_login_failures(db: Session, college_id: str) -> None:
+    db.execute(delete(LoginFailure).where(LoginFailure.college_id == college_id))
 
 
 @router.get("/me", response_model=UserOut)
@@ -155,5 +188,7 @@ def set_password(body: SetPasswordIn, db: Session = Depends(get_db)) -> MessageO
 
     user.password_hash = hash_password(body.new_password)
     setup.used = True
+    # A teacher locked out by someone else's guessing gets back in this way.
+    clear_login_failures(db, user.college_id)
     db.commit()
     return MessageOut(message="Password set. You can now log in.")

@@ -319,6 +319,22 @@ class ChangeLog(Base):
     time: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class LoginFailure(Base):
+    """One wrong login, kept for a short while to stop password guessing.
+
+    Stored by the college ID that was typed (it may not exist), so the limit
+    works the same for real and made-up IDs and gives nothing away.
+    """
+
+    __tablename__ = "login_failures"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    college_id: Mapped[str] = mapped_column(String(30))
+    time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (Index("ix_login_failures_id_time", "college_id", "time"),)
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 
