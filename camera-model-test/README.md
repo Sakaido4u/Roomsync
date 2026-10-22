@@ -32,6 +32,7 @@ Roomsync/
     ├── backend_sync.py   # Smoothing and sending readings to the backend
     ├── .env.example      # Copy to .env: backend address and device key
     ├── tests/            # Automated tests for backend_sync.py
+    ├── webcam_client.py  # Use the laptop webcam instead of the phone
     ├── test_yolo.py      # Optional standalone webcam test
     └── yolov8n.pt        # YOLOv8 nano model weights
 ```
@@ -156,6 +157,25 @@ Note: an Expo tunnel does not automatically expose the local YOLO API; the phone
 5. Use the camera switch button to change between front and rear cameras.
 
 The count is an estimate from individual frames. Occlusion, lighting, camera angle, and model confidence can affect accuracy.
+
+## Using the laptop webcam instead of the phone
+
+For testing without a phone, `webcam_client.py` does what the app does:
+it sends a webcam frame to the inference server every 2.5 seconds with a
+room ID, and shows the count and sync status in a preview window. Frames
+stay in memory and are never saved. With the backend and the inference
+server running, in another window (`.venv` active, inside
+`camera-model-test/`):
+
+```powershell
+python webcam_client.py --room CSE-101
+```
+
+Press **q** in the preview window to stop. Options: `--server`, `--camera`
+(another webcam number), `--every` (seconds), `--no-window`.
+
+`test_yolo.py` is a simpler check: it only shows the webcam with people
+boxes and a count, without the inference server or the backend.
 
 ## End-to-end check
 
