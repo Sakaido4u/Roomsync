@@ -77,8 +77,11 @@ def main() -> None:
         cse5b.class_teacher_id = rrao.id
 
         db.add_all([
+            # CSE-101 is the demo room watched by the phone camera
+            # (RoomSyncMobile), so the no-show check runs for it.
             Room(room_id="CSE-101", name="CSE Classroom 101", type=RoomType.classroom,
-                 building="Main", floor=1, capacity=60, department="CSE"),
+                 building="Main", floor=1, capacity=60, department="CSE",
+                 camera_stream="phone://RoomSyncMobile"),
             Room(room_id="CSE-102", name="CSE Classroom 102", type=RoomType.classroom,
                  building="Main", floor=1, capacity=60, department="CSE"),
             Room(room_id="CSE-LAB2", name="CSE Lab 2", type=RoomType.lab,
