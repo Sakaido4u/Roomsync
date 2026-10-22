@@ -1,6 +1,16 @@
 # RoomSync - API Contract
 
-Draft for team review · Oct 16, 2026
+Version 1.1 · 22 Oct 2026 (first draft agreed 16 Oct 2026)
+
+**Changes since the first draft**
+
+- Endpoints 1 and 2: rules written down (code expiry, one email per minute, 5 tries per code, 8-character passwords).
+- Endpoint 3: after 10 wrong logins for one college ID in 15 minutes, that ID is refused for a while.
+- Endpoint 18: who can answer and the error cases written down.
+- Endpoint 19: new `skipped_dates` list, `end` on each clash, and uploading again replaces the earlier timetable.
+- Endpoint 20: readings are sent by the laptop's inference server (not the phone), about every 2.5 seconds.
+- Endpoints 24 and 25 added so the dashboard can show names instead of numeric IDs.
+- Endpoints 9, 10, 11 and 14: wording corrected to match what the server does.
 
 ## Conventions
 
@@ -225,15 +235,15 @@ The room-status endpoint is what the dashboard grid is built on; each room comes
 ]
 ```
 
-Occupancy is the latest reading, so it is only meaningful for the current time. For a future slot, `occupancy` is `null` and `head_count` is `null`.
+Occupancy is the latest reading, so it is only meaningful for the current time. For a slot that does not include the current time (past or future), `occupancy`, `head_count` and `last_reading_at` are `null`. `end` must be after `start` (`400 invalid_input`).
 
 ### 10. One room's schedule
 
-`GET /api/rooms/CSE-101/schedule?date=2026-11-03`. Reply `200`: a list of `booking` objects (same shape as in endpoint 9, plus `booking_status`) for that day, in time order.
+`GET /api/rooms/CSE-101/schedule?date=2026-11-03`. Reply `200`: a list of booking objects (see "The booking object" below) for that day, in time order. Only active bookings (`scheduled`, `reserved`) are listed. Unknown room: `404 not_found`.
 
 ### 11. Add a room (admin)
 
-`POST /api/rooms` with the same fields as endpoint 8, plus `"camera_stream": "rtsp://..."` if the room has a camera. Reply `201` with the room. The camera stream address is never sent back to the dashboard.
+`POST /api/rooms` with the same fields as endpoint 8, plus `"camera_stream": "rtsp://..."` if the room has a camera. Reply `201` with the room. The camera stream address is never sent back to the dashboard; the room shows `"has_camera": true` instead. `room_id` is stored in capitals and may only contain letters, numbers and dashes (2-20 characters). A room that already exists gives `400 invalid_input`.
 
 ## Bookings
 
@@ -305,7 +315,7 @@ Other rules: `end` must be after `start` and the date cannot be in the past (`40
 
 ### 14. Cancel own reservation
 
-`DELETE /api/bookings/87`. Reply `200` with the booking, now `"booking_status": "cancelled"`. Only the teacher who made it can cancel; anyone else gets `403 forbidden`.
+`DELETE /api/bookings/87`. Reply `200` with the booking, now `"booking_status": "cancelled"`. Only the teacher who made it can cancel; anyone else gets `403 forbidden`. Timetable classes (`scheduled`) can only be changed by an admin (`403 forbidden`), and a booking that is no longer `reserved` gives `400 invalid_input`.
 
 ### 15. Override (admin)
 
@@ -430,7 +440,9 @@ Errors: any unknown room, class or teacher (`404 not_found`), a `teacher_id` tha
 }
 ```
 
-Reply `201` `{ "received": true }`. Sent every 5 seconds per room. If the camera cannot be read, send `"camera_status": "offline"`, `"people_detected": null` and `"head_count": null`. Wrong or missing device key: `401 not_logged_in`.
+Reply `201` `{ "received": true }`. Sent by the inference server on the laptop after each frame the phone sends (about every 2.5 seconds per room), so the device key never leaves the laptop. If the camera cannot be read, send `"camera_status": "offline"`, `"people_detected": null` and `"head_count": null`.
+
+Checks (`400 invalid_input`): an `online` reading needs `people_detected` true or false; `false` needs `head_count` 0, `true` needs 1 or more (or `null`); `time` cannot be more than 2 minutes in the future. Wrong or missing device key: `401 not_logged_in`. Unknown `room_id`: `404 not_found`. A time without a zone is read as India time.
 
 ### 21. Latest reading for a room
 

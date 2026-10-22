@@ -49,9 +49,11 @@ pip install -r requirements.txt
 Copy-Item .env.example .env      # then edit .env with your postgres password
 ```
 
-In SQL Shell (psql), create the test database once:
+In SQL Shell (psql), create the two databases once (the server turns on
+`btree_gist` in the main one by itself):
 
 ```sql
+CREATE DATABASE roomsync;
 CREATE DATABASE roomsync_test;
 \c roomsync_test
 CREATE EXTENSION btree_gist;
