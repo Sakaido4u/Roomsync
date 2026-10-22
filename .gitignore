@@ -13,6 +13,12 @@ __pycache__/
 # Camera model files (large, downloaded automatically)
 *.pt
 
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+
 # Editor and OS files
 .vscode/
 .idea/
