@@ -17,7 +17,15 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import ApiError, register_error_handlers
 from app.init_db import create_tables
-from app.routers import auth, booking_changes, bookings, notifications, occupancy, rooms
+from app.routers import (
+    auth,
+    booking_changes,
+    bookings,
+    notifications,
+    occupancy,
+    rooms,
+    timetable,
+)
 
 
 @asynccontextmanager
@@ -66,3 +74,4 @@ app.include_router(rooms.router)
 app.include_router(occupancy.router)
 app.include_router(booking_changes.router)
 app.include_router(notifications.router)
+app.include_router(timetable.router)

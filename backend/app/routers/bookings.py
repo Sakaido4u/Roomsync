@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import ApiError, forbidden, invalid_input, not_found
 from app.models import ACTIVE_STATUSES, Booking, BookingStatus, Role, Room, SchoolClass, User
-from app.schemas import BookingCreate, BookingOut, RoomRef
+from app.schemas import BookingCreate, BookingOut, ExistingBooking, RoomRef
 from app.security import get_current_user, require_roles
 from app.timeutil import combine, now_ist
 
@@ -72,18 +72,7 @@ def conflict_error(db: Session, room: Room, start: dt.datetime, end: dt.datetime
                    exclude_id: int | None = None) -> ApiError:
     """The 409 reply that the dashboard turns into the "already booked" pop-up."""
     clash = find_clash(db, room.room_id, start, end, exclude_id)
-    existing = None
-    if clash is not None:
-        out = BookingOut.of(clash)
-        existing = {
-            "booking_id": out.booking_id,
-            "booking_status": out.booking_status,
-            "booked_by": out.booked_by.model_dump(),
-            "purpose": out.purpose,
-            "date": out.date.isoformat(),
-            "start": out.start,
-            "end": out.end,
-        }
+    existing = ExistingBooking.of(clash).model_dump(mode="json") if clash else None
     return ApiError(
         409,
         "conflict",

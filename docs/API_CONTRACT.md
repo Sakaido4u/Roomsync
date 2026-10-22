@@ -375,14 +375,40 @@ Reply `200`:
 
 ```json
 {
-  "scheduled_bookings_created": 15,
+  "scheduled_bookings_created": 14,
   "clashes": [
-    { "room_id": "CSE-LAB2", "weekday": "monday", "start": "09:00", "entries": ["CSE-7A Networks Lab", "CSE-5B DBMS Lab"] }
+    { "room_id": "CSE-LAB2", "weekday": "monday", "start": "09:00", "end": "11:00", "entries": ["CSE-7A Networks Lab", "CSE-5B DBMS Lab"] }
+  ],
+  "skipped_dates": [
+    {
+      "room_id": "CSE-101",
+      "date": "2026-11-03",
+      "start": "14:30",
+      "end": "15:30",
+      "entry": "CSE-7A Computer Networks",
+      "existing_booking": {
+        "booking_id": 87,
+        "booking_status": "reserved",
+        "booked_by": { "user_id": 5, "name": "Prof. A. Sharma" },
+        "purpose": "Extra class - DBMS",
+        "date": "2026-11-03",
+        "start": "15:00",
+        "end": "16:00"
+      }
+    }
   ]
 }
 ```
 
-Entries that clash are not saved; the admin fixes them and uploads again.
+Each entry becomes one `scheduled` booking per week from `semester_start` to `semester_end` (only dates that have not started yet). Its `purpose` is the `subject`, booked by `teacher_id` for `class_id`.
+
+- `clashes`: entries in this upload that need the same room at the same time. **None of them is saved**; the admin fixes them and uploads again. `start`/`end` cover the whole clash.
+- `skipped_dates`: weeks where the room is already booked. The entry's other weeks are saved; only these dates are skipped. `existing_booking` has the same shape as in the `409` "already booked" reply, so an admin can decide what to move.
+- People detected by a camera never block a timetable entry.
+
+Uploading again for an overlapping semester **replaces** the earlier timetable: its classes that have not started yet are removed (or marked `cancelled` if an admin had already changed them) and rebuilt from the new upload. Past classes stay.
+
+Errors: any unknown room, class or teacher (`404 not_found`), a `teacher_id` that is not an active teacher or admin, `end` not after `start`, a bad `weekday`, `semester_end` before `semester_start`, a semester longer than a year, or no entries (`400 invalid_input`) reject the whole upload and nothing changes. Teachers and students get `403 forbidden`.
 
 ### 20. Send a people-detection result (camera program)
 

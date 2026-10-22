@@ -7,6 +7,7 @@ FastAPI uses these classes to:
 """
 
 import datetime as dt
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -113,6 +114,26 @@ class BookingCreate(BaseModel):
     end: dt.time
     purpose: str = Field(min_length=1, max_length=200)
     class_id: str | None = None
+
+
+class ExistingBooking(BaseModel):
+    """The booking that is in the way: shown in the "already booked" pop-up
+    (endpoint 12's 409 reply) and for each skipped timetable date (endpoint 19)."""
+
+    booking_id: int
+    booking_status: str
+    booked_by: PersonRef
+    purpose: str
+    date: dt.date
+    start: str
+    end: str
+
+    @classmethod
+    def of(cls, b: Booking) -> "ExistingBooking":
+        full = BookingOut.of(b)
+        return cls(booking_id=full.booking_id, booking_status=full.booking_status,
+                   booked_by=full.booked_by, purpose=full.purpose, date=full.date,
+                   start=full.start, end=full.end)
 
 
 class RoomRef(BaseModel):
@@ -308,6 +329,71 @@ class BookingChangeOut(BookingOut):
     """A booking plus who was told about the change (endpoints 16, 17)."""
 
     notified: list[str]
+
+
+# ---------------------------------------------------------------------------
+# Timetable upload (endpoint 19)
+# ---------------------------------------------------------------------------
+
+Weekday = Literal["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+class TimetableEntryIn(BaseModel):
+    room_id: str = Field(min_length=1)
+    class_id: str = Field(min_length=1)
+    teacher_id: int
+    subject: str = Field(min_length=1, max_length=100)
+    weekday: Weekday
+    start: dt.time
+    end: dt.time
+
+
+class TimetableIn(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "semester_start": "2026-08-18",
+                "semester_end": "2026-12-05",
+                "entries": [
+                    {"room_id": "CSE-101", "class_id": "CSE-7A", "teacher_id": 3,
+                     "subject": "Computer Networks", "weekday": "tuesday",
+                     "start": "14:30", "end": "15:30"}
+                ],
+            }
+        }
+    )
+
+    semester_start: dt.date
+    semester_end: dt.date
+    # A college timetable is a few hundred entries at most.
+    entries: list[TimetableEntryIn] = Field(min_length=1, max_length=1000)
+
+
+class EntryClash(BaseModel):
+    """Entries in the same upload that need the same room at the same time."""
+
+    room_id: str
+    weekday: str
+    start: str
+    end: str
+    entries: list[str]
+
+
+class SkippedDate(BaseModel):
+    """One week of an entry that was not saved because the room was already booked."""
+
+    room_id: str
+    date: dt.date
+    start: str
+    end: str
+    entry: str
+    existing_booking: ExistingBooking
+
+
+class TimetableOut(BaseModel):
+    scheduled_bookings_created: int
+    clashes: list[EntryClash]
+    skipped_dates: list[SkippedDate]
 
 
 # ---------------------------------------------------------------------------

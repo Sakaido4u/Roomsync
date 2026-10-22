@@ -24,7 +24,8 @@ backend/
 │   │   ├── rooms.py     Room list, status grid, schedule, add room (endpoints 8-11)
 │   │   ├── occupancy.py Camera readings in, latest reading out (endpoints 20, 21)
 │   │   ├── booking_changes.py  Admin override, reschedule, remove (endpoints 15-17)
-│   │   └── notifications.py    My notifications, mark as read (endpoints 22, 23)
+│   │   ├── notifications.py    My notifications, mark as read (endpoints 22, 23)
+│   │   └── timetable.py        Timetable upload (endpoint 19)
 │   ├── init_db.py    Creates (or resets) the tables
 │   └── seed.py       Adds demo users, rooms and bookings
 ├── tests/            Automated tests (pytest)
@@ -82,7 +83,8 @@ Demo accounts all use the password `roomsync123`: `SA001` (super admin),
 | 15, 16, 17 | Admin override, reschedule, remove (with reason) | Done |
 | 20, 21 | Camera readings in, latest reading out | Done |
 | 22, 23 | My notifications, mark as read | Done |
-| others | Setup codes, admin rights, CR, timetable, no-show | To do |
+| 19 | Timetable upload | Done |
+| others | Setup codes, admin rights, CR, no-show | To do |
 
 ## For the camera program
 
