@@ -8,6 +8,7 @@
 import { api, clearSession, getSession, saveSession } from './api.js';
 import { ROLE_LABELS, h, icon, toast } from './ui.js';
 import { renderLogin } from './views/login.js';
+import { renderTimetable } from './views/timetable.js';
 import { renderRooms } from './views/rooms.js';
 import { renderReserve } from './views/reserve.js';
 import { renderBookings } from './views/bookings.js';
@@ -22,8 +23,10 @@ const header = document.getElementById('site-header');
 // Who sees which menu item. The server still checks every request; this
 // only hides buttons a role cannot use.
 const STAFF = ['teacher', 'admin'];
+const HOME = '/timetable';
 const MENU = [
-  { path: '/rooms', label: 'Rooms', roles: null },
+  { path: '/timetable', label: 'Timetable', roles: null },
+  { path: '/rooms', label: 'Rooms now', roles: null },
   { path: '/reserve', label: 'Reserve', roles: STAFF },
   { path: '/bookings', label: 'My bookings', roles: STAFF },
   { path: '/admin', label: 'Admin', roles: ['admin'] },
@@ -32,6 +35,7 @@ const MENU = [
 ];
 
 const SCREENS = {
+  '/timetable': renderTimetable,
   '/rooms': renderRooms,
   '/reserve': renderReserve,
   '/bookings': renderBookings,
@@ -46,7 +50,7 @@ let unreadTimer = null;
 
 function currentRoute() {
   const [path, search = ''] = location.hash.replace(/^#/, '').split('?');
-  return { path: path || '/rooms', params: new URLSearchParams(search) };
+  return { path: path || HOME, params: new URLSearchParams(search) };
 }
 
 // Go to a screen. Setting the same address again does not fire
@@ -70,7 +74,7 @@ function renderHeader(user, path) {
   const role = user.is_cr ? `${ROLE_LABELS[user.role]} · CR` : ROLE_LABELS[user.role];
 
   header.replaceChildren(h('div', { class: 'site-header__inner' },
-    h('a', { class: 'brand', href: '#/rooms' },
+    h('a', { class: 'brand', href: `#${HOME}` },
       h('span', { class: 'brand__mark', 'aria-hidden': 'true' }, icon('logo', 22)),
       'RoomSync'),
     h('nav', { class: 'nav', 'aria-label': 'Main' }, navLinks),
@@ -106,7 +110,7 @@ async function refreshUser() {
     const { path } = currentRoute();
     const item = MENU.find(m => m.path === path);
     if (item && !allowed(item, user)) {
-      go('/rooms');
+      go(HOME);
     } else {
       renderHeader(user, path);
     }
@@ -148,18 +152,18 @@ function show() {
   const session = getSession();
 
   if (!session || path === '/login') {
-    if (session && path === '/login') return go(params.get('next') || '/rooms');
+    if (session && path === '/login') return go(params.get('next') || HOME);
     header.hidden = true;
     header.replaceChildren();
     clearInterval(unreadTimer);
     unreadTimer = null;
-    cleanup = renderLogin({ main, params, onLoggedIn: () => go(params.get('next') || '/rooms') });
+    cleanup = renderLogin({ main, params, onLoggedIn: () => go(params.get('next') || HOME) });
     return;
   }
 
   const item = MENU.find(m => m.path === path);
   const screen = SCREENS[path];
-  if (!screen || (item && !allowed(item, session.user))) return go('/rooms');
+  if (!screen || (item && !allowed(item, session.user))) return go(HOME);
 
   renderHeader(session.user, path);
   if (!unreadTimer) {

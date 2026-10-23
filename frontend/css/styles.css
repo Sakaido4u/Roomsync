@@ -113,6 +113,9 @@ a { color: var(--accent); }
 }
 .skip-link:focus { top: 12px; }
 
+/* "hidden" always hides, even on elements that set their own display. */
+[hidden] { display: none !important; }
+
 .visually-hidden {
   position: absolute !important;
   width: 1px; height: 1px;
@@ -789,3 +792,242 @@ tr:last-child td { border-bottom: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .file-drop { padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+
+/* =====================================================================
+ * Screen 1: the timetable grid
+ * ===================================================================== */
+
+.tt-head { align-items: flex-start; }
+.tt-week__label { display: block; margin-top: 2px; color: var(--muted); font-size: 0.9rem; }
+.tt-live { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 0.875rem; }
+.tt-live__room { display: flex; align-items: center; gap: 6px; }
+
+.tt-toolbar {
+  grid-template-columns: auto minmax(200px, 1fr) auto auto;
+}
+.tt-toolbar__label { font-weight: 600; font-size: 0.875rem; }
+.tt-toolbar__print { align-self: end; }
+.tt-week { display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 860px) {
+  .tt-toolbar { grid-template-columns: 1fr; }
+  .tt-toolbar__print { display: none; }
+  .tt-live { align-items: flex-start; }
+}
+
+.tt { display: flex; flex-direction: column; gap: 16px; }
+
+/* The class sheet's header line: "SEMESTER: VII-A · Room No: A-312 · W.E.F: 20/7/2026". */
+.tt-sheet {
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.01em;
+}
+.tt-sheet__dot { color: var(--muted); }
+
+/* --- The grid ------------------------------------------------------------ */
+
+.tt-grid-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.tt-grid {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.tt-grid th, .tt-grid td {
+  padding: 6px;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+.tt-grid thead th { text-align: center; background: var(--surface-2); color: var(--text); }
+.tt-grid__corner { width: 78px; }
+.tt-grid__period { display: block; font-weight: 700; }
+.tt-grid__time { display: block; color: var(--muted); font-weight: 500; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.tt-grid__lunch-head { width: 34px; }
+
+.tt-grid__day { background: var(--surface-2); white-space: nowrap; }
+.tt-grid__day span { display: block; }
+.tt-grid__date { color: var(--muted); font-weight: 500; font-size: 0.75rem; }
+.tt-grid__today-label {
+  margin-top: 4px;
+  display: inline-block !important;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.7rem;
+}
+.tt-grid__today > * { background-color: var(--accent-soft); }
+.tt-grid__today > .tt-grid__day { box-shadow: inset 4px 0 0 var(--accent); }
+
+/* The narrow vertical LUNCH BREAK column. */
+.tt-grid__lunch {
+  width: 34px;
+  padding: 0 !important;
+  background: var(--surface-2) !important;
+  vertical-align: middle !important;
+  text-align: center !important;
+}
+.tt-grid__lunch span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.3em;
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.tt-cell { height: 64px; }
+.tt-cell--now { outline: 3px solid var(--accent); outline-offset: -3px; }
+.tt-cell__entries { display: flex; flex-direction: column; gap: 4px; }
+.tt-now {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* "+" on a free period (teachers and admins). */
+.tt-add {
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  border: 1px dashed transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.35;
+}
+.tt-add:hover, .tt-add:focus-visible { opacity: 1; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+/* --- One class or booking ------------------------------------------------ */
+
+.tt-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 5px 7px;
+  border: 1px solid var(--tag-sched-bd);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: var(--tag-sched-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.tt-entry:hover { filter: brightness(0.97); }
+.tt-entry--extra { border-color: var(--tag-res-bd); background: var(--tag-res-bg); }
+.tt-entry--changed { border-style: dashed; border-left-style: solid; border-color: var(--tag-over-bd); }
+.tt-entry--inactive { background: var(--tag-off-bg); border-color: var(--tag-off-bd); color: var(--muted); }
+.tt-entry--inactive .tt-entry__main { text-decoration: line-through; }
+.tt-entry__main strong { font-weight: 750; }
+.tt-entry__title { color: var(--muted); }
+.tt-entry__room { font-weight: 600; }
+.tt-entry__badges, .tt-entry__live { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.tt-entry__live .tag { font-size: 0.72rem; padding: 2px 7px; }
+
+.tt-badge {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tt-badge--extra { color: var(--tag-res-fg); border-color: var(--tag-res-bd); background: var(--tag-res-bg); }
+.tt-badge--changed { color: var(--tag-over-fg); border-color: var(--tag-over-bd); background: var(--tag-over-bg); }
+
+.tt-legend { font-size: 0.85rem; }
+
+/* --- Booking dialog: room choices --------------------------------------- */
+
+.tt-rooms { display: flex; flex-direction: column; gap: 6px; }
+.tt-room {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.tt-room:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.tt-room input { width: 18px; height: 18px; min-height: 0; accent-color: var(--accent); }
+
+/* --- One day at a time (phones) ----------------------------------------- */
+
+.tt-days { display: none; }
+.tt-days__tabs { display: flex; flex-wrap: wrap; margin-bottom: 12px; }
+.tt-days__title { margin-bottom: 8px; }
+.tt-days__list { display: flex; flex-direction: column; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.tt-slot {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.tt-slot__when { display: flex; flex-direction: column; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.tt-slot__when span { color: var(--muted); }
+.tt-slot__when .tt-now { align-self: flex-start; margin: 4px 0 0; color: var(--accent-text); }
+.tt-slot__what { display: flex; flex-direction: column; gap: 6px; }
+.tt-slot__what .tt-add { opacity: 0.8; border-color: var(--border); min-height: 40px; }
+.tt-slot--lunch { background: var(--surface-2); grid-template-columns: 1fr; color: var(--muted); }
+.tt-slot--lunch .tt-slot__when { flex-direction: row; gap: 8px; }
+
+@media (max-width: 760px) {
+  .tt-grid-wrap { display: none; }
+  .tt-days { display: block; }
+}
+
+/* --- Course table (class view) ------------------------------------------ */
+
+.tt-courses h2 { margin-bottom: 8px; }
+.tt-courses table { background: var(--surface); }
+.tt-courses__num { text-align: right; font-variant-numeric: tabular-nums; }
+.tt-courses tfoot th { text-align: right; }
+
+/* --- Print: the paper sheet ------------------------------------------- */
+
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  :root { --text: #000; --muted: #333; --border: #000; --surface: #fff; --surface-2: #fff; --bg: #fff; --accent-soft: #fff; }
+  body { background: #fff; color: #000; font-size: 11px; }
+  .site-header, .skip-link, .toasts, .tt-toolbar, .tt-live, .tt-days, .tt-add, .tt-legend, .tt-now,
+  .tt-entry__live, .tt-grid__today-label { display: none !important; }
+  .page { max-width: none; padding: 0; }
+  .tt-grid-wrap { display: block !important; overflow: visible; border: 0; box-shadow: none; }
+  .tt-grid { min-width: 0; font-size: 10px; }
+  .tt-grid th, .tt-grid td { border: 1px solid #000; }
+  .tt-cell--now { outline: none; }
+  .tt-grid__today > * { background: #fff; box-shadow: none !important; }
+  .tt-entry { border: 0; padding: 0; background: none !important; color: #000; }
+  .tt-badge { border-color: #000; color: #000; background: none; }
+  .tt-sheet { border: 0; padding: 0 0 6px; font-size: 12px; }
+  .tt-courses { break-inside: avoid; }
+}

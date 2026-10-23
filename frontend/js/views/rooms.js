@@ -66,7 +66,7 @@ export function renderRooms({ main, params, user }) {
   main.replaceChildren(
     h('div', { class: 'page-head' },
       h('div', {},
-        h('h1', {}, 'Rooms'),
+        h('h1', {}, 'Rooms now'),
         h('p', { id: 'slot-summary' }))),
     toolbar,
     h('div', { class: 'statusbar' }, counts, live),
