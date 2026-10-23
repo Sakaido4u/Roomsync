@@ -140,6 +140,23 @@ class MyClassOut(BaseModel):
     students: list[ClassStudent]
 
 
+# ---------------------------------------------------------------------------
+# Periods (endpoint 26)
+# ---------------------------------------------------------------------------
+
+class PeriodOut(BaseModel):
+    period: str
+    label: str
+    start: str
+    end: str
+    bookable: bool
+
+
+class PeriodsOut(BaseModel):
+    days: list[str]
+    periods: list[PeriodOut]
+
+
 class BookingOut(BaseModel):
     booking_id: int
     room_id: str

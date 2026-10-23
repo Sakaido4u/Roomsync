@@ -59,7 +59,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 
 ## Endpoint summary
 
-25 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs.
+26 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 for the timetable grid.
 
 | # | Method and path | Who can call it | Purpose | Flow |
 | --- | --- | --- | --- | --- |
@@ -88,6 +88,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 | 23 | `POST /api/notifications/{id}/read` | Logged in | Mark a notification as read | E5, E8 |
 | 24 | `GET /api/users` | Admin, super admin | List people (e.g. teachers) by name | E1, E6 |
 | 25 | `GET /api/classes/mine` | Teacher, admin | Classes I am class teacher of, with students | E6 |
+| 26 | `GET /api/periods` | Logged in | The timetable grid's days and periods | E6 |
 
 ## Accounts and login
 
@@ -509,3 +510,27 @@ Used to pick a teacher to make an admin, and to turn college IDs in a timetable 
 ```
 
 Students and the super admin get `403 forbidden`.
+
+## Periods
+
+The timetable grid is drawn from this, so no times are typed into the dashboard.
+
+### 26. Periods (logged in)
+
+`GET /api/periods`. Reply `200`: the grid's rows (`days`) and columns (`periods`) in order. The lunch break is included so the grid can show it, with `bookable: false`.
+
+```json
+{
+  "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
+  "periods": [
+    { "period": "P1", "label": "P1", "start": "09:00", "end": "10:00", "bookable": true },
+    { "period": "P2", "label": "P2", "start": "10:00", "end": "11:00", "bookable": true },
+    { "period": "P3", "label": "P3", "start": "11:00", "end": "12:00", "bookable": true },
+    { "period": "P4", "label": "P4", "start": "12:00", "end": "13:00", "bookable": true },
+    { "period": "lunch", "label": "Lunch break", "start": "13:00", "end": "13:45", "bookable": false },
+    { "period": "P5", "label": "P5", "start": "13:45", "end": "14:45", "bookable": true },
+    { "period": "P6", "label": "P6", "start": "14:45", "end": "15:45", "bookable": true },
+    { "period": "P7", "label": "P7", "start": "15:45", "end": "16:45", "bookable": true }
+  ]
+}
+```
