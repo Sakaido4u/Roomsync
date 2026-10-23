@@ -26,6 +26,18 @@ UPGRADES = [
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_users_one_cr_per_class ON users (class_id) "
     "WHERE is_cr",
     "ALTER TABLE setup_codes ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0",
+    # Timetable grid (handoff 2). The subjects table itself is new, so
+    # create_all makes it before these run.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS initials VARCHAR(10)",
+    "ALTER TABLE classes ADD COLUMN IF NOT EXISTS semester_label VARCHAR(20)",
+    "ALTER TABLE classes ADD COLUMN IF NOT EXISTS home_room_id VARCHAR(20) "
+    "REFERENCES rooms (room_id)",
+    "ALTER TABLE classes ADD COLUMN IF NOT EXISTS strength INTEGER",
+    "ALTER TABLE classes ADD COLUMN IF NOT EXISTS wef_date DATE",
+    "ALTER TABLE timetable_entries ALTER COLUMN room_id DROP NOT NULL",
+    "ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS subject_code VARCHAR(20) "
+    "REFERENCES subjects (code)",
+    "ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS batch VARCHAR(10)",
 ]
 
 

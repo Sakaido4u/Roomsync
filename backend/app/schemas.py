@@ -9,9 +9,18 @@ FastAPI uses these classes to:
 import datetime as dt
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
-from app.models import Booking, CameraStatus, Room, RoomType, User
+from app.models import (
+    Booking,
+    CameraStatus,
+    Room,
+    RoomType,
+    SchoolClass,
+    Subject,
+    TeachingAssignment,
+    User,
+)
 from app.timeutil import hhmm, to_ist
 
 
@@ -140,8 +149,32 @@ class MyClassOut(BaseModel):
     students: list[ClassStudent]
 
 
+class ClassOut(BaseModel):
+    """A class with its timetable-sheet details (endpoint 28)."""
+
+    class_id: str
+    name: str
+    department: str
+    semester_label: str | None
+    home_room_id: str | None
+    strength: int | None
+    wef_date: dt.date | None
+    class_teacher: PersonRef | None
+
+    @classmethod
+    def of(cls, school_class: SchoolClass) -> "ClassOut":
+        teacher = school_class.class_teacher
+        return cls(
+            class_id=school_class.class_id, name=school_class.name,
+            department=school_class.department, semester_label=school_class.semester_label,
+            home_room_id=school_class.home_room_id, strength=school_class.strength,
+            wef_date=school_class.wef_date,
+            class_teacher=PersonRef(user_id=teacher.id, name=teacher.name) if teacher else None,
+        )
+
+
 # ---------------------------------------------------------------------------
-# Periods (endpoint 26)
+# Periods, subjects and who teaches what (endpoints 26, 27, 29-32)
 # ---------------------------------------------------------------------------
 
 class PeriodOut(BaseModel):
@@ -155,6 +188,85 @@ class PeriodOut(BaseModel):
 class PeriodsOut(BaseModel):
     days: list[str]
     periods: list[PeriodOut]
+
+
+SubjectTypeCode = Literal["IPCC", "PCC", "PEC", "OEC", "PROJ"]
+
+
+class SubjectIn(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"code": "BCS702", "title": "Parallel Computing", "type": "IPCC",
+                        "credits": 4, "department": "CSE"}
+        }
+    )
+
+    code: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9-]+$")
+    title: str = Field(min_length=1, max_length=150)
+    type: SubjectTypeCode
+    credits: int = Field(ge=0, le=30)
+    department: str = Field(min_length=1, max_length=20)
+
+
+class SubjectOut(BaseModel):
+    code: str
+    title: str
+    type: str
+    credits: int
+    department: str
+
+    @classmethod
+    def of(cls, subject: Subject) -> "SubjectOut":
+        return cls(code=subject.code, title=subject.title, type=subject.type.value,
+                   credits=subject.credits, department=subject.department)
+
+
+class TeacherRef(BaseModel):
+    user_id: int
+    college_id: str
+    name: str
+    initials: str | None
+
+
+class TeachingIn(BaseModel):
+    """Give the teacher as `teacher` (college ID) or `teacher_id`, not both."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"teacher": "T002", "subject_code": "BCS702", "class_id": "CSE-7A",
+                        "batch": None}
+        }
+    )
+
+    teacher: str | None = Field(default=None, min_length=1)
+    teacher_id: int | None = None
+    subject_code: str = Field(min_length=1)
+    class_id: str = Field(min_length=1)
+    batch: str | None = Field(default=None, min_length=1, max_length=10)
+
+    @model_validator(mode="after")
+    def _one_teacher(self) -> "TeachingIn":
+        if (self.teacher is None) == (self.teacher_id is None):
+            raise ValueError("give exactly one of teacher (college ID) or teacher_id")
+        return self
+
+
+class TeachingOut(BaseModel):
+    teaching_id: int
+    teacher: TeacherRef
+    subject: SubjectOut
+    class_id: str
+    batch: str | None
+
+    @classmethod
+    def of(cls, row: TeachingAssignment) -> "TeachingOut":
+        t = row.teacher
+        return cls(
+            teaching_id=row.id,
+            teacher=TeacherRef(user_id=t.id, college_id=t.college_id, name=t.name,
+                               initials=t.initials),
+            subject=SubjectOut.of(row.subject), class_id=row.class_id, batch=row.batch,
+        )
 
 
 class BookingOut(BaseModel):

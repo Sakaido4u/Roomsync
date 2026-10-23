@@ -38,6 +38,7 @@ The backend sends short codes; the dashboard turns them into the labels people s
 | `booking_status` | `not_booked`, `scheduled`, `reserved`, `overridden`, `released`, `cancelled` | Not booked, Scheduled, Reserved, Overridden, Released, Cancelled |
 | `occupancy` | `people_detected`, `not_detected`, `no_data` | People detected, Not detected, No camera data |
 | `camera_status` | `online`, `offline` | — |
+| subject `type` | `IPCC`, `PCC`, `PEC`, `OEC`, `PROJ` | Shown as is, like on the college timetable |
 
 CR is not a separate role: it is `"is_cr": true` on a student's account.
 
@@ -59,7 +60,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 
 ## Endpoint summary
 
-26 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 for the timetable grid.
+32 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 to 32 for the timetable grid.
 
 | # | Method and path | Who can call it | Purpose | Flow |
 | --- | --- | --- | --- | --- |
@@ -89,6 +90,12 @@ Every error has the same shape, so the dashboard handles them all the same way:
 | 24 | `GET /api/users` | Admin, super admin | List people (e.g. teachers) by name | E1, E6 |
 | 25 | `GET /api/classes/mine` | Teacher, admin | Classes I am class teacher of, with students | E6 |
 | 26 | `GET /api/periods` | Logged in | The timetable grid's days and periods | E6 |
+| 27 | `GET /api/subjects` | Logged in | The course list | E6 |
+| 28 | `GET /api/classes` | Logged in | Every class with its timetable-sheet details | E6 |
+| 29 | `POST /api/subjects` | Admin | Add a subject | E6 |
+| 30 | `GET /api/teaching` | Logged in | Who teaches which subject to which class | E6 |
+| 31 | `POST /api/teaching` | Admin | Record who teaches what | E6 |
+| 32 | `DELETE /api/teaching/{teaching_id}` | Admin | Remove a teaching assignment | E6 |
 
 ## Accounts and login
 
@@ -511,9 +518,30 @@ Used to pick a teacher to make an admin, and to turn college IDs in a timetable 
 
 Students and the super admin get `403 forbidden`.
 
-## Periods
+### 28. Class list (logged in)
 
-The timetable grid is drawn from this, so no times are typed into the dashboard.
+`GET /api/classes`. Reply `200`, every class sorted by ID, with what the timetable sheet's header shows. Every field after `department` may be `null`.
+
+```json
+[
+  {
+    "class_id": "CSE-7A",
+    "name": "CSE 7th sem A",
+    "department": "CSE",
+    "semester_label": "VII-A",
+    "home_room_id": "A-312",
+    "strength": 64,
+    "wef_date": "2026-07-20",
+    "class_teacher": { "user_id": 5, "name": "Prof. A. Sharma" }
+  }
+]
+```
+
+`strength` is the number of students, used to suggest rooms that are big enough. `wef_date` is "with effect from", the date the class's timetable starts.
+
+## Periods, subjects and who teaches what
+
+The timetable grid is drawn from these, so no times or course names are typed into the dashboard.
 
 ### 26. Periods (logged in)
 
@@ -534,3 +562,53 @@ The timetable grid is drawn from this, so no times are typed into the dashboard.
   ]
 }
 ```
+
+### 27. Subjects (logged in)
+
+`GET /api/subjects`. Reply `200`, sorted by code:
+
+```json
+[
+  { "code": "BCS702", "title": "Parallel Computing", "type": "IPCC", "credits": 4, "department": "CSE" }
+]
+```
+
+### 29. Add a subject (admin)
+
+`POST /api/subjects` with the same fields as one item of endpoint 27. `code` is letters, digits and `-` only, stored in capitals. `credits` is 0 to 30. Reply `201` with the subject.
+
+Errors: a code that already exists (`409 conflict`), a bad `type` or other field (`400 invalid_input`). Others get `403 forbidden`.
+
+### 30. Who teaches what (logged in)
+
+`GET /api/teaching`, optional `?teacher=T002` (a college ID) and/or `?class_id=CSE-7A`. Reply `200`, sorted by class, subject code, then batch (whole class first):
+
+```json
+[
+  {
+    "teaching_id": 3,
+    "teacher": { "user_id": 5, "college_id": "T002", "name": "Prof. A. Sharma", "initials": "AS" },
+    "subject": { "code": "BCS702", "title": "Parallel Computing", "type": "IPCC", "credits": 4, "department": "CSE" },
+    "class_id": "CSE-7A",
+    "batch": null
+  }
+]
+```
+
+Rows are added automatically by the timetable upload (endpoint 19) and by admins (endpoint 31). Students use it for the course table under their timetable; teachers can only book extra classes for subjects they have a row for.
+
+### 31. Record who teaches what (admin)
+
+`POST /api/teaching`
+
+```json
+{ "teacher": "T002", "subject_code": "BCS702", "class_id": "CSE-7A", "batch": null }
+```
+
+Give the teacher as `teacher` (college ID) or `teacher_id`, not both. `batch` is optional. Reply `201` with the row, as in endpoint 30.
+
+Errors: unknown teacher, subject or class (`404 not_found`), someone who is not an active teacher or admin, or both/neither teacher fields (`400 invalid_input`), the same teacher, subject, class and batch already recorded (`409 conflict`). Others get `403 forbidden`.
+
+### 32. Remove a teaching assignment (admin)
+
+`DELETE /api/teaching/{teaching_id}`. Reply `200` with the removed row. Timetable classes already created are not changed. Unknown ID: `404 not_found`. Others get `403 forbidden`.

@@ -14,10 +14,19 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import forbidden, invalid_input, not_found
 from app.models import Role, SchoolClass, User
-from app.schemas import ClassCrIn, ClassCrOut, ClassStudent, MyClassOut, PersonRef
+from app.schemas import ClassCrIn, ClassCrOut, ClassOut, ClassStudent, MyClassOut, PersonRef
 from app.security import get_current_user, require_roles
 
 router = APIRouter(prefix="/api/classes", tags=["classes"])
+
+
+@router.get("", response_model=list[ClassOut])
+def list_classes(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> list[ClassOut]:
+    """Every class with its timetable-sheet details (endpoint 28)."""
+    return [ClassOut.of(c) for c in db.scalars(select(SchoolClass).order_by(SchoolClass.class_id))]
 
 
 @router.get("/mine", response_model=list[MyClassOut])

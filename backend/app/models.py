@@ -82,6 +82,15 @@ class ChangeAction(str, enum.Enum):
     release = "release"
 
 
+class SubjectType(str, enum.Enum):
+    # The course types printed on the college timetable sheet.
+    ipcc = "IPCC"  # integrated (theory + lab) professional core course
+    pcc = "PCC"    # professional core course
+    pec = "PEC"    # professional elective course
+    oec = "OEC"    # open elective course
+    proj = "PROJ"  # project work
+
+
 class NotificationType(str, enum.Enum):
     booking_overridden = "booking_overridden"
     booking_rescheduled = "booking_rescheduled"
@@ -123,8 +132,20 @@ class SchoolClass(Base):
     class_teacher_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", use_alter=True, name="fk_classes_class_teacher")
     )
+    # Shown in the timetable sheet's header: "SEMESTER: VII-A · Room No:
+    # A-312 · W.E.F: 20/7/2026". All optional, so older data keeps working.
+    semester_label: Mapped[str | None] = mapped_column(String(20))
+    home_room_id: Mapped[str | None] = mapped_column(ForeignKey("rooms.room_id"))
+    # Number of students, used to suggest rooms that are big enough.
+    strength: Mapped[int | None] = mapped_column(Integer)
+    # "With effect from": the date this class's timetable starts.
+    wef_date: Mapped[date | None] = mapped_column(Date)
 
     class_teacher: Mapped["User | None"] = relationship(foreign_keys=[class_teacher_id])
+
+    __table_args__ = (
+        CheckConstraint("strength IS NULL OR strength > 0", name="ck_classes_strength"),
+    )
 
 
 class User(Base):
@@ -133,6 +154,10 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     college_id: Mapped[str] = mapped_column(String(30), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(100))
+    # Short form shown in timetable cells, e.g. "AS" in "BCS702 (AS)".
+    # Stored, not worked out from the name: "Dr. K. Rao" is "KRA" so that
+    # it differs from another teacher's "KR".
+    initials: Mapped[str | None] = mapped_column(String(10))
     email: Mapped[str] = mapped_column(String(255), unique=True)
     # Empty until the user sets a password with their setup code.
     password_hash: Mapped[str | None] = mapped_column(String(255))
@@ -255,16 +280,68 @@ class Booking(Base):
         return self.start_at.date()
 
 
+class Subject(Base):
+    """A course from the college's course list, e.g. BCS702 Parallel Computing."""
+
+    __tablename__ = "subjects"
+
+    code: Mapped[str] = mapped_column(String(20), primary_key=True)
+    title: Mapped[str] = mapped_column(String(150))
+    type: Mapped[SubjectType] = mapped_column(enum_column(SubjectType, "subject_type"))
+    credits: Mapped[int] = mapped_column(Integer)
+    department: Mapped[str] = mapped_column(String(20))
+
+    __table_args__ = (
+        CheckConstraint("credits >= 0", name="ck_subjects_credits"),
+    )
+
+
+class TeachingAssignment(Base):
+    """Who teaches which subject to which class, and optionally which batch.
+
+    Filled in automatically by the timetable upload, and by admins for
+    anything not on the timetable. Teachers can only book extra classes for
+    subjects they have a row here for.
+    """
+
+    __tablename__ = "teaching_assignments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    subject_code: Mapped[str] = mapped_column(ForeignKey("subjects.code"))
+    class_id: Mapped[str] = mapped_column(ForeignKey("classes.class_id"))
+    # A lab batch such as "A1", or empty for the whole class.
+    batch: Mapped[str | None] = mapped_column(String(10))
+
+    teacher: Mapped[User] = relationship()
+    subject: Mapped[Subject] = relationship()
+
+    __table_args__ = (
+        # The same assignment cannot be recorded twice. coalesce() makes
+        # "no batch" count as a value, because two NULLs never match.
+        Index("ux_teaching_assignment", "teacher_id", "subject_code", "class_id",
+              text("coalesce(batch, '')"), unique=True),
+    )
+
+
 class TimetableEntry(Base):
-    """One weekly class slot. Each entry creates Scheduled bookings for the semester."""
+    """One weekly class slot. Each entry creates Scheduled bookings for the semester.
+
+    An entry without a room (Open Elective, Major Project) still shows on
+    the timetable but creates no bookings and blocks no room.
+    """
 
     __tablename__ = "timetable_entries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    room_id: Mapped[str] = mapped_column(ForeignKey("rooms.room_id"))
+    room_id: Mapped[str | None] = mapped_column(ForeignKey("rooms.room_id"))
     class_id: Mapped[str] = mapped_column(ForeignKey("classes.class_id"))
     teacher_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    # The name shown for the class, e.g. "Parallel Computing".
     subject: Mapped[str] = mapped_column(String(100))
+    subject_code: Mapped[str | None] = mapped_column(ForeignKey("subjects.code"))
+    # A lab batch such as "A1", or empty for the whole class.
+    batch: Mapped[str | None] = mapped_column(String(10))
     # 0 = Monday ... 6 = Sunday (same numbering as Python's date.weekday()).
     weekday: Mapped[int] = mapped_column(Integer)
     start_time: Mapped[time] = mapped_column(Time)
