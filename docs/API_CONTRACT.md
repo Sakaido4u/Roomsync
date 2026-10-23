@@ -754,7 +754,7 @@ Reply `200` (shortened):
   ```
 
   `action` is `override`, `reschedule`, `remove` or `release`; `by` is `null` for the automatic release. A moved class shows in its new room and time. A reservation its own teacher cancelled is not shown (the period is simply free again).
-- Timetable entries without a room (Open Elective, Major Project) have `booking_id: null` and `room_id: null`. Weeks before the timetable was uploaded also come from the timetable itself (`booking_id: null`).
+- Timetable entries without a room (Open Elective, Major Project) have `booking_id: null` and `room_id: null`. Classes that had already started when the timetable was uploaded (it only books later ones) also come from the timetable itself (`booking_id: null`).
 - `title` is the subject's title when the code is known, else the subject name or purpose.
 - `occupancy` (same values as endpoint 21: `occupancy`, `head_count`, `last_reading_at`) is filled in only on an entry that is running now; `room_occupancy` only in the room view, for the current week.
 - `outside_periods`: bookings that touch no period (e.g. a 17:30 meeting).

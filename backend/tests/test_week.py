@@ -284,3 +284,23 @@ def test_week_bad_input(client, login, world, params, status, words):
 
 def test_week_needs_a_login(client, world):
     assert client.get("/api/timetable/week", params={"room_id": "CSE-101"}).status_code == 401
+
+
+def test_timetable_class_without_a_booking_shows_once_it_has_started(db, world):
+    """The upload never books a class that has already started, so a class
+    running at upload time comes from the timetable itself."""
+    from app.models import TimetableEntry
+    db.add(TimetableEntry(room_id="CSE-101", class_id="CSE-7A", teacher_id=world["teacher"].id,
+                          subject="Networks", weekday=0, start_time=dt.time(9),
+                          end_time=dt.time(10), semester_start=MONDAY,
+                          semester_end=MONDAY + dt.timedelta(days=6)))
+    db.commit()
+    cls = db.get(SchoolClass, "CSE-7A")
+
+    def p1(now):
+        body = week_view(db, MONDAY, now, school_class=cls)
+        return body.days[0].cells[0].entries
+
+    assert p1(combine(MONDAY, dt.time(8, 0))) == []          # not started: skipped/removed
+    [running] = p1(combine(MONDAY, dt.time(9, 30)))
+    assert (running.booking_id, running.room_id) == (None, "CSE-101")

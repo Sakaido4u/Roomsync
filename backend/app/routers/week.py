@@ -241,10 +241,10 @@ def week_view(db: Session, monday: dt.date, now: dt.datetime, *,
         if (e.id, day) in linked:
             continue
         # No booking for this date. Shown from the timetable when it has no
-        # room (it never books one), or when it is already over (weeks before
-        # the timetable was uploaded). A future date with a room but no
-        # booking was skipped or removed, so it is not shown.
-        if e.room_id is not None and combine(day, e.end_time) > now:
+        # room (it never books one), or when it had already started (the
+        # upload only books classes that have not started yet). A later date
+        # with a room but no booking was skipped or removed, so it is not shown.
+        if e.room_id is not None and combine(day, e.start_time) > now:
             continue
         placed.append(Placed(day, e.start_time, e.end_time, WeekEntry(
             booking_id=None,
