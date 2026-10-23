@@ -34,7 +34,7 @@ Every part of RoomSync (dashboard, backend, camera program) follows these rules,
 | Dates | `YYYY-MM-DD` | `2026-11-03` |
 | Times | 24-hour `HH:MM` | `15:00` |
 | Timestamps | ISO 8601 with India time zone | `2026-11-03T15:04:10+05:30` |
-| Room IDs | Department + room number | `CSE-101`, `CSE-LAB2` |
+| Room IDs | Building or department + room number | `A-312`, `CSE-101` |
 | Class IDs | Department + semester + section | `CSE-7A` |
 | Logged-in requests | Header `Authorization: Bearer <token>` | Token comes from login |
 | Camera program | Header `X-Device-Key: <key>` instead of a login | Key set by admin on the server |

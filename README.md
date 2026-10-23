@@ -9,6 +9,13 @@ module), Chirag S, Gagan SS.
 
 ## What it does
 
+The first page after login is a **weekly timetable** laid out like the
+college's paper sheet: a teacher's week, a class's sheet with its course
+table, or a room's week. Extra classes and changed classes are marked,
+the class running now shows live people detection, and teachers click a
+free period to book it for one of their subjects. **Rooms now** shows
+every room for a chosen time slot.
+
 Every room shows two separate things side by side, for example
 "Reserved · People detected":
 
@@ -220,7 +227,9 @@ cd RoomSyncMobile; npx expo start
 
 ### Before the demo
 
-1. Fresh demo data (deletes everything in the `roomsync` database):
+1. Fresh demo data (deletes everything in the `roomsync` database). Do this
+   on the morning of the demo: the extra class and the moved class are
+   placed in the current week.
 
    ```powershell
    cd backend; .\venv\Scripts\Activate.ps1
@@ -238,53 +247,81 @@ cd RoomSyncMobile; npx expo start
 
 3. Start all three parts (see above). Point the phone at the room, room ID
    `CSE-101` (the seeded room with a camera).
-4. A browser keeps one login, so open three separate windows and log in:
-   **Edge** as `T002` (Prof. Sharma), **Edge InPrivate** as `T003`
-   (Prof. Rao), **Chrome** (or a second browser profile) as `T001` (HOD).
-   Put the projector on the `T002` window.
+4. A browser keeps one login, so open four separate windows and log in:
+   **Edge** as `T002` (Prof. A. Sharma), **Edge InPrivate** as `T003`
+   (Prof. R. Rao), **Chrome** (or a second browser profile) as `T001` (HOD),
+   and a phone or narrow window as `1JS23CS044` (the CR). Put the projector
+   on the `T002` window.
 
-### 1. Live people detection
+### 1. The timetable (2 minutes)
 
-1. In the `T002` window, **Rooms** shows every room for the current hour with
-   **"Live · updates every 5 s"**.
+1. **Teacher's week (30 s).** The `T002` window opens on **Prof. A. Sharma ·
+   T002 · AS** for this week. Point out:
+   - eight regular classes: BCS702 for CSE-7A in A-312 and CSE-7B in A-313;
+   - the **two-period labs** as one wide cell (Tue P6-P7 in A-202, Wed P1-P2
+     in A-219) and the narrow **LUNCH BREAK** column;
+   - **today's row** highlighted, the current period outlined with **Now**.
+2. **What changed this week (20 s).** Saturday P2 has an **EXTRA** badge: a
+   BCS702 doubt session. This week's CSE-7B class is in **B-303** with a
+   **MOVED** badge. Hover it (or tap it) to show "Moved by Dr. K. Rao (HOD).
+   Reason: A-313 projector under repair". The bell shows **1**: the same
+   message reached Prof. Sharma.
+3. **Book a free period (40 s).** Click the faint **+** on **Saturday P1**
+   (or on **Monday P7** after **Next ›**: both are kept free in A-312).
+   The dialog has the date and period filled in. Leave **For: BCS702 ·
+   CSE-7A**: the purpose fills itself in as "Extra class: BCS702, CSE-7A".
+   The suggested rooms start with **A-312 · Home room**, then rooms big
+   enough for 64 students. Click **Book period**: it appears in the grid at
+   once with an **EXTRA** badge. Say: a teacher can only book for subjects
+   they teach; the server checks.
+4. **The class sheet (20 s).** In the `1JS23CS044` window: the **VII-A**
+   sheet with "SEMESTER: VII-A · Room No: A-312 · W.E.F: 20/7/2026", both
+   lab batches stacked in one cell (`BCS701 A1 (KR) /A-310` above
+   `BCS702 A2 (AS) /A-202`), the Major Project filling Thursday and Friday,
+   and the course table with 24 credits underneath. On a phone it shows one
+   day at a time with day tabs.
+5. **Print (10 s).** `T002` window → **Class** → `CSE-7A` → **Print**: it
+   prints like the paper sheet.
+
+### 2. Live people detection
+
+1. In the `T002` window, **Rooms now** shows every room for the current hour
+   with **"Live · updates every 5 s"**.
 2. Point the phone at people. Within a few seconds, **CSE-101** shows
    **"People detected · N"**, and the phone shows **"Synced to RoomSync"**.
 3. Point it at an empty wall. After about three frames (7-8 seconds), the tag
    changes to **"Not detected"**. (One odd frame never flips it: the last 3
    counts must agree.)
 4. Say: the camera only sends yes/no and a count; no image is stored.
-
-### 2. Booking a room
-
-1. `T002`: **Reserve** → room `CSE-102`, today, a slot later today (for
-   example the next full hour), purpose "Extra class - DBMS", class `CSE-7A`
-   → **Reserve room**.
-2. It appears in **My bookings**, and on **Rooms** for that slot as
-   **Reserved** with Prof. Sharma's name and the purpose.
+   (To show it inside the timetable instead, set the phone's room to
+   `A-312` during a CSE-7A class: the **Now** cell shows the same tag.)
 
 ### 3. The "already booked" pop-up
 
-1. `T003`: **Reserve** → the same room and an overlapping time → **Reserve room**.
+1. `T003`: **Reserve** → room `A-312`, the date and time of the period
+   booked in step 1.3 (for example Saturday, 09:00-10:00), purpose
+   "Seminar" → **Reserve room**.
 2. The pop-up shows who booked it (Prof. A. Sharma), when, why, and **free
    rooms at the same time**.
 3. Click one of the free rooms: it is booked in one click.
 
 ### 4. Admin override with a reason
 
-1. `T001` (HOD): **Rooms** → pick the slot from step 2 → on the **CSE-102**
-   card, **Override**.
+1. `T001` (HOD): **Timetable** → **Teacher** → `Prof. A. Sharma` → click
+   the extra class from step 1.3 → **Override**.
 2. Try to submit without a reason: it is refused. Enter a purpose
    ("Placement briefing") and a reason ("Company visit moved to today") →
    **Override**. The message says who was notified.
-3. `T002`: the bell shows **1**. **Notifications** shows "Booking taken over"
-   with the HOD's name and the reason. The CR (`1JS23CS044`) gets the class
-   version, and both get an email if email is set up.
+3. `T002`: the bell shows a new notification, "Booking taken over", with
+   the HOD's name and the reason, and the class in the grid now shows
+   **OVERRIDDEN**. The CR (`1JS23CS044`) gets the class version, and both
+   get an email if email is set up.
 
 ### 5. No-show reminder
 
 1. `T002`: **Reserve** → `CSE-101`, today, starting about **two minutes from
    now** (a booking cannot start in the past), for 30 minutes, purpose
-   "Lab session" → **Reserve room**.
+   "Lab session", class `CSE-7A` → **Reserve room**.
 2. Point the phone at an empty corner and keep it running from before the
    start.
 3. About 2 minutes after the start (the demo setting), the bell shows a new
@@ -292,21 +329,24 @@ cd RoomSyncMobile; npx expo start
    **Release it**. The CR gets it too.
 4. Click **Keep the room**: the booking stays.
    Or show the automatic release: do nothing, and about 1 minute later the
-   booking becomes **Released**, both are told, and **Rooms** shows CSE-101
-   as **Not booked** again.
+   booking becomes **Released**, both are told, and **Rooms now** shows
+   CSE-101 as **Not booked** again.
 5. Say: if the camera stops or its data is patchy, the check does nothing.
    Freeing a room that is actually in use would be worse than keeping an
    empty one.
 
 ### 6. Extras if there is time
 
+- **Room view**: **Timetable** → **Room** → `A-310`: the lab's week, both
+  batches' labs in one place.
 - **Admin → Timetable**: download the template, upload it, and show
   the clash and skipped-week tables.
 - **Admin rights** as `SA001`: make a teacher an admin. The server accepts
   their admin actions at once; their menu shows **Admin** within 30 seconds,
   without logging in again.
 - **My class** as `T002`: change the CR of CSE-7A.
-- A student (`1JS23CS039`) sees rooms but no booking or admin controls.
+- A student (`1JS23CS039`) sees the timetable and rooms but no booking or
+  admin controls.
 
 ---
 
