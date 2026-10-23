@@ -38,6 +38,8 @@ UPGRADES = [
     "ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS subject_code VARCHAR(20) "
     "REFERENCES subjects (code)",
     "ALTER TABLE timetable_entries ADD COLUMN IF NOT EXISTS batch VARCHAR(10)",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS subject_code VARCHAR(20) "
+    "REFERENCES subjects (code)",
 ]
 
 

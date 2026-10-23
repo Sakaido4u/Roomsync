@@ -1,6 +1,11 @@
 # RoomSync - API Contract
 
-Version 1.2 · 23 Oct 2026 (first draft agreed 16 Oct 2026)
+Version 1.3 · 23 Oct 2026 (first draft agreed 16 Oct 2026)
+
+**Changes in 1.3 (timetable grid, part 2)**
+
+- Endpoint 12: the time can be one `period` (`"P3"`) instead of `start`/`end`; a new optional `subject_code` books an extra class for one of the teacher's own subjects (purpose filled in when left out); with a class, the `409` reply's `free_rooms` are suggested for that class.
+- Endpoint 34 (free rooms for a slot) added.
 
 **Changes in 1.2 (timetable grid)**
 
@@ -66,7 +71,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 
 ## Endpoint summary
 
-32 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 to 32 for the timetable grid.
+33 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 to 32 and 34 for the timetable grid.
 
 | # | Method and path | Who can call it | Purpose | Flow |
 | --- | --- | --- | --- | --- |
@@ -102,6 +107,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 | 30 | `GET /api/teaching` | Logged in | Who teaches which subject to which class | E6 |
 | 31 | `POST /api/teaching` | Admin | Record who teaches what | E6 |
 | 32 | `DELETE /api/teaching/{teaching_id}` | Admin | Remove a teaching assignment | E6 |
+| 34 | `GET /api/rooms/free` | Logged in | Free rooms for a slot, best fit for a class first | E3 |
 
 ## Accounts and login
 
@@ -297,6 +303,26 @@ One `booking` object is used everywhere; a `409 conflict` reply carries everythi
 }
 ```
 
+Or, booking one period of the timetable grid as an extra class:
+
+```json
+{
+  "room_id": "A-312",
+  "date": "2026-11-07",
+  "period": "P2",
+  "class_id": "CSE-7A",
+  "subject_code": "BCS702"
+}
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `room_id`, `date` | Yes | |
+| `start` and `end`, or `period` | One of the two | A period code from endpoint 26 (`"P3"`) sets the period's start and end. Lunch is not bookable, and periods only run Monday to Saturday. Free times (`start`/`end`) work as before. |
+| `purpose` | Unless `subject_code` is given | Left out with a `subject_code`, it becomes `"Extra class: BCS702, CSE-7A"`. |
+| `class_id` | With `subject_code` | That class's CR gets notifications about the booking. |
+| `subject_code` | No | One of the caller's own subjects for `class_id` (endpoint 30). Booking for a subject you do not teach to that class gives `403 forbidden`. |
+
 Reply `201` with the new booking object (`booking_status: "reserved"`).
 
 If the slot overlaps an existing booking, reply `409`:
@@ -321,7 +347,9 @@ If the slot overlaps an existing booking, reply `409`:
 }
 ```
 
-Other rules: `end` must be after `start` and the date cannot be in the past (`400 invalid_input`); students get `403 forbidden`. Back-to-back bookings (one ends at 15:00, the next starts at 15:00) are allowed.
+`free_rooms` are up to 5 free rooms for the same time. When `class_id` is a class with a home room or strength, they are chosen as in endpoint 34 (home room first, then rooms big enough for the class); otherwise rooms of the same type come first.
+
+Other rules: `end` must be after `start`, the date cannot be in the past, and the time must be given one way only (`400 invalid_input`); students get `403 forbidden`. Back-to-back bookings (one ends at 15:00, the next starts at 15:00) are allowed.
 
 ### 13. My bookings
 
@@ -648,3 +676,20 @@ Errors: unknown teacher, subject or class (`404 not_found`), someone who is not 
 ### 32. Remove a teaching assignment (admin)
 
 `DELETE /api/teaching/{teaching_id}`. Reply `200` with the removed row. Timetable classes already created are not changed. Unknown ID: `404 not_found`. Others get `403 forbidden`.
+
+## Timetable grid
+
+### 34. Free rooms for a slot (logged in)
+
+`GET /api/rooms/free?date=2026-10-26&period=P7&class_id=CSE-7A`, or `start=15:45&end=16:45` instead of `period`. Reply `200`:
+
+```json
+[
+  { "room_id": "A-312", "name": "Classroom A-312", "type": "classroom", "capacity": 70, "is_home_room": true },
+  { "room_id": "B-303", "name": "Classroom B-303", "type": "classroom", "capacity": 60, "is_home_room": false }
+]
+```
+
+With `class_id`: the class's home room first (when free), then rooms with at least the class's `strength` seats, smallest first. A class with no strength recorded can use any room. Without `class_id`: every free room, by ID. A room is free when no `scheduled` or `reserved` booking overlaps the slot.
+
+Errors: both or neither of `period` and `start`/`end`, `end` not after `start`, or a period that is not bookable (`400 invalid_input`); unknown class (`404 not_found`).

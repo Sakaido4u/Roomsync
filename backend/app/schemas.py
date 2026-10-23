@@ -317,10 +317,29 @@ class BookingCreate(BaseModel):
 
     room_id: str = Field(min_length=1)
     date: dt.date
-    start: dt.time
-    end: dt.time
-    purpose: str = Field(min_length=1, max_length=200)
+    # The time: start and end, or one timetable period ("P3") instead.
+    start: dt.time | None = None
+    end: dt.time | None = None
+    period: str | None = Field(default=None, min_length=1, max_length=10)
+    # Required, except for an extra class booked by subject_code, where it
+    # is filled in as "Extra class: BCS702, CSE-7A" when left out.
+    purpose: str | None = Field(default=None, max_length=200)
     class_id: str | None = None
+    # One of the booker's own subjects for class_id (see endpoint 30).
+    subject_code: str | None = Field(default=None, min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def _time_and_purpose(self) -> "BookingCreate":
+        has_times = self.start is not None or self.end is not None
+        if self.period is not None and has_times:
+            raise ValueError("give start and end, or a period, not both")
+        if self.period is None and (self.start is None or self.end is None):
+            raise ValueError("give start and end, or a period")
+        if self.subject_code is None and self.purpose is None:
+            raise ValueError("purpose is required unless a subject_code is given")
+        if self.subject_code is not None and self.class_id is None:
+            raise ValueError("class_id is required with subject_code")
+        return self
 
 
 class ExistingBooking(BaseModel):
@@ -346,6 +365,16 @@ class ExistingBooking(BaseModel):
 class RoomRef(BaseModel):
     room_id: str
     name: str
+
+
+class FreeRoomOut(BaseModel):
+    """A suggested free room (endpoint 34)."""
+
+    room_id: str
+    name: str
+    type: str
+    capacity: int
+    is_home_room: bool
 
 
 # ---------------------------------------------------------------------------

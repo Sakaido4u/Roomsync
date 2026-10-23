@@ -241,6 +241,9 @@ class Booking(Base):
     timetable_entry_id: Mapped[int | None] = mapped_column(
         ForeignKey("timetable_entries.id", ondelete="SET NULL")
     )
+    # The subject taught, when known (timetable classes and extra classes
+    # booked from the timetable grid), so the grid can show its code.
+    subject_code: Mapped[str | None] = mapped_column(ForeignKey("subjects.code"))
     # Set when the no-show reminder goes out, so it is only sent once.
     reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Set when the teacher or CR answers the reminder with "keep": the

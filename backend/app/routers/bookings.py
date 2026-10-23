@@ -1,5 +1,10 @@
 """Booking endpoints (API contract endpoints 12, 13 and 14).
 
+A booking's time is either start/end or one timetable period ("P3"), which
+is how the timetable grid books. A teacher booking an extra class from the
+grid can pick one of their own subjects for a class: the server checks they
+really teach it and fills in the purpose.
+
 The overlap check is NOT written here as an if-statement. We simply try to
 save the booking, and PostgreSQL's no-overlap rule (see models.py) refuses
 it if the slot is taken. That is what makes it safe when two teachers
@@ -9,14 +14,24 @@ submit at the same moment: there is only one judge, the database.
 import datetime as dt
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, exists, select
+from sqlalchemy import and_, case, exists, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.errors import ApiError, forbidden, invalid_input, not_found
-from app.models import ACTIVE_STATUSES, Booking, BookingStatus, Role, Room, SchoolClass, User
-from app.schemas import BookingCreate, BookingOut, ExistingBooking, RoomRef
+from app.models import (
+    ACTIVE_STATUSES,
+    Booking,
+    BookingStatus,
+    Role,
+    Room,
+    SchoolClass,
+    TeachingAssignment,
+    User,
+)
+from app.periods import TEACHING_DAYS, get_period
+from app.schemas import BookingCreate, BookingOut, ExistingBooking, FreeRoomOut, RoomRef
 from app.security import get_current_user, require_roles
 from app.timeutil import combine, now_ist
 
@@ -68,18 +83,73 @@ def free_rooms(db: Session, start: dt.datetime, end: dt.datetime, wanted: Room) 
     return [RoomRef(room_id=r.room_id, name=r.name) for r in rooms]
 
 
+def rooms_for_class(db: Session, start: dt.datetime, end: dt.datetime,
+                    school_class: SchoolClass) -> list[Room]:
+    """Free rooms for a class: its home room first (if free), then rooms big
+    enough for the whole class, smallest first so big halls stay free.
+    A class with no strength recorded can use any room."""
+    busy = exists().where(Booking.room_id == Room.room_id, overlaps(start, end))
+    query = select(Room).where(~busy)
+    if school_class.strength is not None:
+        query = query.where((Room.capacity >= school_class.strength)
+                            | (Room.room_id == school_class.home_room_id))
+    home_first = case((Room.room_id == school_class.home_room_id, 0), else_=1)
+    return list(db.scalars(query.order_by(home_first, Room.capacity, Room.room_id)))
+
+
+def free_room_out(room: Room, school_class: SchoolClass | None) -> FreeRoomOut:
+    home = school_class is not None and room.room_id == school_class.home_room_id
+    return FreeRoomOut(room_id=room.room_id, name=room.name, type=room.type.value,
+                       capacity=room.capacity, is_home_room=home)
+
+
 def conflict_error(db: Session, room: Room, start: dt.datetime, end: dt.datetime,
-                   exclude_id: int | None = None) -> ApiError:
-    """The 409 reply that the dashboard turns into the "already booked" pop-up."""
+                   exclude_id: int | None = None,
+                   school_class: SchoolClass | None = None) -> ApiError:
+    """The 409 reply that the dashboard turns into the "already booked" pop-up.
+
+    With a class that has a home room or strength, the free rooms are
+    suggested for that class (see rooms_for_class).
+    """
     clash = find_clash(db, room.room_id, start, end, exclude_id)
     existing = ExistingBooking.of(clash).model_dump(mode="json") if clash else None
+    if school_class is not None and (school_class.home_room_id or school_class.strength):
+        rooms = [r for r in rooms_for_class(db, start, end, school_class)
+                 if r.room_id != room.room_id][:MAX_SUGGESTIONS]
+        suggestions = [RoomRef(room_id=r.room_id, name=r.name) for r in rooms]
+    else:
+        suggestions = free_rooms(db, start, end, room)
     return ApiError(
         409,
         "conflict",
         "This room is already booked for that time.",
         existing_booking=existing,
-        free_rooms=[r.model_dump() for r in free_rooms(db, start, end, room)],
+        free_rooms=[r.model_dump() for r in suggestions],
     )
+
+
+def slot_times(day: dt.date, start: dt.time | None, end: dt.time | None,
+               period: str | None) -> tuple[dt.datetime, dt.datetime]:
+    """The booking's start and end, from start/end or from a period code."""
+    if period is None:
+        return combine(day, start), combine(day, end)
+    found = get_period(period)
+    if found is None or not found.bookable:
+        raise invalid_input(f"{period} is not a bookable period.")
+    if day.weekday() not in TEACHING_DAYS:
+        raise invalid_input("Periods only run Monday to Saturday.")
+    return combine(day, found.start), combine(day, found.end)
+
+
+def check_teaches(db: Session, user: User, subject_code: str, class_id: str) -> None:
+    """Teachers may only book extra classes for subjects they teach to that class."""
+    teaches = db.scalar(select(TeachingAssignment.id).where(
+        TeachingAssignment.teacher_id == user.id,
+        TeachingAssignment.subject_code == subject_code,
+        TeachingAssignment.class_id == class_id,
+    ).limit(1))
+    if teaches is None:
+        raise forbidden(f"You do not teach {subject_code} to {class_id}.")
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +163,11 @@ def reserve_room(
     user: User = Depends(require_roles(Role.teacher, Role.admin)),
 ) -> BookingOut:
     """Reserve a room (endpoint 12). Overlaps get 409 with the clash and free rooms."""
-    start = combine(body.date, body.start)
-    end = combine(body.date, body.end)
-    purpose = body.purpose.strip()
+    start, end = slot_times(body.date, body.start, body.end, body.period)
+    if body.purpose is None:  # only allowed with a subject_code
+        purpose = f"Extra class: {body.subject_code}, {body.class_id}"
+    else:
+        purpose = body.purpose.strip()
 
     # Simple checks first, so the database only has to judge overlaps.
     if end <= start:
@@ -108,8 +180,11 @@ def reserve_room(
     room = db.get(Room, body.room_id)
     if room is None:
         raise not_found(f"Room {body.room_id} does not exist.")
-    if body.class_id is not None and db.get(SchoolClass, body.class_id) is None:
+    school_class = db.get(SchoolClass, body.class_id) if body.class_id is not None else None
+    if body.class_id is not None and school_class is None:
         raise not_found(f"Class {body.class_id} does not exist.")
+    if body.subject_code is not None:
+        check_teaches(db, user, body.subject_code, body.class_id)
 
     booking = Booking(
         room_id=room.room_id,
@@ -119,6 +194,7 @@ def reserve_room(
         end_at=end,
         purpose=purpose,
         status=BookingStatus.reserved,
+        subject_code=body.subject_code,
     )
     db.add(booking)
     try:
@@ -126,7 +202,7 @@ def reserve_room(
     except IntegrityError:
         # PostgreSQL refused it: the slot overlaps an active booking.
         db.rollback()
-        raise conflict_error(db, room, start, end)
+        raise conflict_error(db, room, start, end, school_class=school_class)
 
     db.refresh(booking)
     return BookingOut.of(booking)
