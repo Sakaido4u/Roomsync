@@ -1,8 +1,14 @@
 # RoomSync - API Contract
 
-Version 1.1 · 22 Oct 2026 (first draft agreed 16 Oct 2026)
+Version 1.2 · 23 Oct 2026 (first draft agreed 16 Oct 2026)
 
-**Changes since the first draft**
+**Changes in 1.2 (timetable grid)**
+
+- Endpoint 19: entries can give the teacher as a college ID (`teacher`), the subject as a code (`subject_code`), a lab `batch`, and can leave out `room_id` for activities with no room. Old-style entries work exactly as before.
+- Endpoints 26 to 32 added: periods, subjects, the class list, and who teaches what.
+- New fixed value: subject `type`.
+
+**Changes in 1.1**
 
 - Endpoints 1 and 2: rules written down (code expiry, one email per minute, 5 tries per code, 8-character passwords).
 - Endpoint 3: after 10 wrong logins for one college ID in 15 minutes, that ID is refused for a while.
@@ -390,10 +396,40 @@ The camera program only ever calls endpoint 20; everything it sends is a yes/no 
       "weekday": "tuesday",
       "start": "14:30",
       "end": "15:30"
+    },
+    {
+      "room_id": "A-202",
+      "class_id": "CSE-7A",
+      "teacher": "T002",
+      "subject_code": "BCS702",
+      "batch": "A2",
+      "weekday": "tuesday",
+      "start": "14:45",
+      "end": "16:45"
+    },
+    {
+      "class_id": "CSE-7A",
+      "teacher": "T005",
+      "subject_code": "OE-7",
+      "weekday": "monday",
+      "start": "12:00",
+      "end": "13:00"
     }
   ]
 }
 ```
+
+Each entry gives:
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `class_id`, `weekday`, `start`, `end` | Yes | As before |
+| `teacher_id` or `teacher` | Exactly one | The teacher's user ID, or their college ID (`"T002"`) |
+| `subject` and/or `subject_code` | At least one | A name, a code from endpoint 27, or both. With only a code, the subject's title is used as the name. |
+| `room_id` | No | Leave out for activities with no room (Open Elective, Major Project): the entry is saved and shown on the timetable, but books nothing and blocks no room. |
+| `batch` | No | A lab batch such as `"A1"`; leave out for the whole class. Two batches of a class can be in different rooms at the same time. |
+
+Every saved entry with a `subject_code` also records who teaches what (endpoint 30), if not already recorded.
 
 Reply `200`:
 
@@ -424,7 +460,7 @@ Reply `200`:
 }
 ```
 
-Each entry becomes one `scheduled` booking per week from `semester_start` to `semester_end` (only dates that have not started yet). Its `purpose` is the `subject`, booked by `teacher_id` for `class_id`.
+Each entry with a room becomes one `scheduled` booking per week from `semester_start` to `semester_end` (only dates that have not started yet), booked by its teacher for `class_id`. Its `purpose` is the subject name, with the code in front and the batch after when given: `"BCS702 Parallel Computing (batch A2)"`. In `clashes` and `skipped_dates`, an entry is named `"<class_id> <subject_code or subject>[ <batch>]"`, e.g. `"CSE-7A BCS702 A2"`.
 
 - `clashes`: entries in this upload that need the same room at the same time. **None of them is saved**; the admin fixes them and uploads again. `start`/`end` cover the whole clash.
 - `skipped_dates`: weeks where the room is already booked. The entry's other weeks are saved; only these dates are skipped. `existing_booking` has the same shape as in the `409` "already booked" reply, so an admin can decide what to move.
@@ -432,7 +468,7 @@ Each entry becomes one `scheduled` booking per week from `semester_start` to `se
 
 Uploading again for an overlapping semester **replaces** the earlier timetable: its classes that have not started yet are removed (or marked `cancelled` if an admin had already changed them) and rebuilt from the new upload. Past classes stay.
 
-Errors: any unknown room, class or teacher (`404 not_found`), a `teacher_id` that is not an active teacher or admin, `end` not after `start`, a bad `weekday`, `semester_end` before `semester_start`, a semester longer than a year, or no entries (`400 invalid_input`) reject the whole upload and nothing changes. Teachers and students get `403 forbidden`.
+Errors: any unknown room, class, subject code or teacher (`404 not_found`), a teacher that is not an active teacher or admin, both or neither of `teacher_id`/`teacher`, neither `subject` nor `subject_code`, `end` not after `start`, a bad `weekday`, `semester_end` before `semester_start`, a semester longer than a year, or no entries (`400 invalid_input`) reject the whole upload and nothing changes. Teachers and students get `403 forbidden`.
 
 ### 20. Send a people-detection result (camera program)
 

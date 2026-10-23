@@ -554,13 +554,34 @@ Weekday = Literal["monday", "tuesday", "wednesday", "thursday", "friday", "satur
 
 
 class TimetableEntryIn(BaseModel):
-    room_id: str = Field(min_length=1)
+    """One weekly slot.
+
+    - Teacher: `teacher_id`, or `teacher` as a college ID ("T002"). Exactly one.
+    - Subject: `subject` (a name), `subject_code` ("BCS702"), or both.
+      With only a code, the subject's title is used as the name.
+    - `room_id` can be left out for activities with no room (Open Elective,
+      Major Project): they appear on the timetable but book nothing.
+    - `batch` ("A1") for a lab batch; left out for the whole class.
+    """
+
+    room_id: str | None = Field(default=None, min_length=1)
     class_id: str = Field(min_length=1)
-    teacher_id: int
-    subject: str = Field(min_length=1, max_length=100)
+    teacher_id: int | None = None
+    teacher: str | None = Field(default=None, min_length=1)
+    subject: str | None = Field(default=None, min_length=1, max_length=100)
+    subject_code: str | None = Field(default=None, min_length=1, max_length=20)
+    batch: str | None = Field(default=None, min_length=1, max_length=10)
     weekday: Weekday
     start: dt.time
     end: dt.time
+
+    @model_validator(mode="after")
+    def _teacher_and_subject(self) -> "TimetableEntryIn":
+        if (self.teacher is None) == (self.teacher_id is None):
+            raise ValueError("give exactly one of teacher (college ID) or teacher_id")
+        if self.subject is None and self.subject_code is None:
+            raise ValueError("give subject, subject_code, or both")
+        return self
 
 
 class TimetableIn(BaseModel):

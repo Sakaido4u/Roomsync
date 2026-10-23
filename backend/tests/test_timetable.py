@@ -317,3 +317,108 @@ def test_bad_upload_does_not_remove_previous_timetable(client, login, world, db)
     upload(client, login("admin"), [entry(world)])
     upload(client, login("admin"), [entry(world, room="NOPE-1")])
     assert active_count(db) == 4
+
+
+# --- Subject codes, batches, no-room entries, teachers by college ID --------
+
+@pytest.fixture()
+def subjects(db, world):
+    from app.models import Subject, SubjectType
+    db.add_all([
+        Subject(code="BCS702", title="Parallel Computing", type=SubjectType.ipcc,
+                credits=4, department="CSE"),
+        Subject(code="OE-7", title="Open Elective", type=SubjectType.oec,
+                credits=3, department="CSE"),
+    ])
+    db.commit()
+
+
+def coded(world, **fields):
+    """An entry given the new way: teacher by college ID, subject by code."""
+    e = entry(world, **{k: v for k, v in fields.items() if k in ("room", "weekday", "start",
+                                                                 "end", "class_id")})
+    del e["teacher_id"], e["subject"]
+    e.update({"teacher": "T1", "subject_code": "BCS702"})
+    e.update({k: v for k, v in fields.items() if k in ("teacher", "subject_code", "batch",
+                                                       "subject")})
+    return e
+
+
+def test_teacher_by_college_id_and_subject_by_code(client, login, world, subjects, db):
+    r = upload(client, login("admin"), [coded(world)])
+    assert r.status_code == 200, r.text
+    assert r.json()["scheduled_bookings_created"] == 4
+
+    row = db.scalar(select(TimetableEntry))
+    assert (row.teacher_id, row.subject, row.subject_code, row.batch) == (
+        world["teacher"].id, "Parallel Computing", "BCS702", None)
+    booking = db.scalar(select(Booking))
+    assert booking.purpose == "BCS702 Parallel Computing"
+    assert booking.user_id == world["teacher"].id
+
+
+def test_upload_records_who_teaches_what_once(client, login, world, subjects, db):
+    from app.models import TeachingAssignment
+    upload(client, login("admin"), [
+        coded(world),
+        coded(world, weekday="wednesday"),             # same assignment again
+        coded(world, weekday="friday", room="LAB-1", batch="A1"),
+    ])
+    rows = db.scalars(select(TeachingAssignment).order_by(TeachingAssignment.id)).all()
+    assert [(a.teacher_id, a.subject_code, a.class_id, a.batch) for a in rows] == [
+        (world["teacher"].id, "BCS702", "CSE-7A", None),
+        (world["teacher"].id, "BCS702", "CSE-7A", "A1"),
+    ]
+
+
+def test_entry_without_a_room_books_nothing(client, login, world, subjects, db):
+    no_room = coded(world, subject_code="OE-7", start="12:00", end="13:00")
+    del no_room["room_id"]
+    # Another class's open elective at the same time: no room, so no clash.
+    other = dict(no_room, teacher="T2")
+    r = upload(client, login("admin"), [no_room, other, coded(world)])
+    assert r.status_code == 200, r.text
+    assert r.json() == {"scheduled_bookings_created": 4, "clashes": [], "skipped_dates": []}
+
+    rows = db.scalars(select(TimetableEntry).order_by(TimetableEntry.id)).all()
+    assert [(e.room_id, e.subject) for e in rows] == [
+        (None, "Open Elective"), (None, "Open Elective"), ("CSE-101", "Parallel Computing")]
+    assert active_count(db) == 4
+
+
+def test_lab_batches_in_two_rooms_at_the_same_time(client, login, world, subjects, db):
+    r = upload(client, login("admin"), [
+        coded(world, room="LAB-1", batch="A1", start="14:45", end="16:45"),
+        coded(world, room="CSE-102", batch="A2", teacher="T2", start="14:45", end="16:45"),
+    ])
+    assert r.status_code == 200, r.text
+    assert r.json()["scheduled_bookings_created"] == 8
+    purposes = set(db.scalars(select(Booking.purpose)))
+    assert purposes == {"BCS702 Parallel Computing (batch A1)",
+                        "BCS702 Parallel Computing (batch A2)"}
+
+
+def test_same_room_clash_names_code_and_batch(client, login, world, subjects):
+    r = upload(client, login("admin"), [
+        coded(world, batch="A1"), coded(world, batch="A2", teacher="T2")])
+    assert r.json()["clashes"][0]["entries"] == ["CSE-7A BCS702 A1", "CSE-7A BCS702 A2"]
+
+
+def test_a_given_subject_name_wins_over_the_title(client, login, world, subjects, db):
+    upload(client, login("admin"), [coded(world, subject="Parallel Computing Lab")])
+    assert db.scalar(select(TimetableEntry.subject)) == "Parallel Computing Lab"
+
+
+@pytest.mark.parametrize("change, status, words", [
+    ({"subject_code": "NOPE1"}, 404, "Subject NOPE1 does not exist"),
+    ({"teacher": "NOBODY"}, 404, "NOBODY does not exist"),
+    ({"teacher": "S1"}, 400, "is not an active teacher"),
+    ({"teacher_id": 1}, 400, "exactly one of teacher"),
+    ({"subject_code": None}, 400, "give subject, subject_code, or both"),
+])
+def test_bad_new_style_entry_rejects_the_upload(client, login, world, subjects, db,
+                                                 change, status, words):
+    r = upload(client, login("admin"), [{**coded(world), **change}])
+    assert r.status_code == status, r.text
+    assert words in r.json()["message"]
+    assert db.scalar(select(func.count()).select_from(TimetableEntry)) == 0

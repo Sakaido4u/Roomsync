@@ -12,6 +12,10 @@ Clash rules we agreed:
   reported (room, date, time, who holds it, why). An admin decides what to move.
 - People detected by a camera never block anything; only bookings do.
 
+Entries without a room (Open Elective, Major Project) are saved so they
+show on the timetable, but create no bookings and block no room. Every
+entry with a subject_code also records who teaches what (teaching.py).
+
 Uploading again for the same semester REPLACES the earlier timetable:
 its classes that have not started yet are removed and rebuilt from the new
 upload. Past classes stay as history.
@@ -24,6 +28,7 @@ that one date is undone and reported; the rest of the upload carries on.
 
 import datetime as dt
 from collections import defaultdict
+from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -41,10 +46,12 @@ from app.models import (
     Role,
     Room,
     SchoolClass,
+    Subject,
     TimetableEntry,
     User,
 )
 from app.routers.bookings import find_clash
+from app.routers.teaching import find_teacher, record_teaching
 from app.schemas import (
     EntryClash,
     ExistingBooking,
@@ -81,8 +88,15 @@ def weekly_dates(first_day: dt.date, last_day: dt.date, weekday: int) -> list[dt
 
 
 def entry_label(entry: TimetableEntryIn) -> str:
-    """'CSE-7A Computer Networks'"""
-    return f"{entry.class_id} {entry.subject.strip()}"
+    """'CSE-7A Computer Networks', or 'CSE-7A BCS702 A2' with a code and batch."""
+    label = f"{entry.class_id} {entry.subject_code or entry.subject.strip()}"
+    return f"{label} {entry.batch}" if entry.batch else label
+
+
+def booking_purpose(entry: TimetableEntryIn, name: str) -> str:
+    """'Parallel Computing', or 'BCS702 Parallel Computing (batch A2)'."""
+    purpose = f"{entry.subject_code} {name}" if entry.subject_code else name
+    return f"{purpose} (batch {entry.batch})" if entry.batch else purpose
 
 
 def minutes(t: dt.time) -> dt.time:
@@ -100,7 +114,8 @@ def find_entry_clashes(entries: list[TimetableEntryIn]) -> tuple[list[EntryClash
     """
     groups: dict[tuple[str, str], list[int]] = defaultdict(list)
     for i, entry in enumerate(entries):
-        groups[(entry.room_id, entry.weekday)].append(i)
+        if entry.room_id is not None:  # no room, nothing to clash over
+            groups[(entry.room_id, entry.weekday)].append(i)
 
     clashes: list[EntryClash] = []
     clashing: set[int] = set()
@@ -139,8 +154,19 @@ def find_entry_clashes(entries: list[TimetableEntryIn]) -> tuple[list[EntryClash
 # Steps of an upload
 # ---------------------------------------------------------------------------
 
-def check_upload(db: Session, body: TimetableIn) -> None:
-    """Refuse the whole upload (nothing saved) if anything in it is wrong."""
+@dataclass
+class CheckedEntry:
+    """What check_upload worked out for one entry."""
+
+    teacher_id: int
+    name: str  # the subject name to show: given, or the subject's title
+
+
+def check_upload(db: Session, body: TimetableIn) -> list[CheckedEntry]:
+    """Refuse the whole upload (nothing saved) if anything in it is wrong.
+
+    Returns, for each entry in order, its teacher's user ID and subject name.
+    """
     if body.semester_end < body.semester_start:
         raise invalid_input("semester_end must be on or after semester_start.")
     if (body.semester_end - body.semester_start).days > MAX_SEMESTER_DAYS:
@@ -149,10 +175,10 @@ def check_upload(db: Session, body: TimetableIn) -> None:
     for n, entry in enumerate(body.entries):
         if minutes(entry.end) <= minutes(entry.start):
             raise invalid_input(f"entries.{n}: end must be after start.")
-        if not entry.subject.strip():
+        if entry.subject is not None and not entry.subject.strip():
             raise invalid_input(f"entries.{n}: subject cannot be empty.")
 
-    room_ids = {e.room_id for e in body.entries}
+    room_ids = {e.room_id for e in body.entries if e.room_id is not None}
     found_rooms = set(db.scalars(select(Room.room_id).where(Room.room_id.in_(room_ids))))
     if missing := sorted(room_ids - found_rooms):
         raise not_found(f"Room {missing[0]} does not exist.")
@@ -164,14 +190,21 @@ def check_upload(db: Session, body: TimetableIn) -> None:
     if missing := sorted(class_ids - found_classes):
         raise not_found(f"Class {missing[0]} does not exist.")
 
-    teacher_ids = {e.teacher_id for e in body.entries}
-    teachers = {u.id: u for u in db.scalars(select(User).where(User.id.in_(teacher_ids)))}
-    for teacher_id in sorted(teacher_ids):
-        teacher = teachers.get(teacher_id)
-        if teacher is None:
-            raise not_found(f"User {teacher_id} does not exist.")
-        if teacher.role not in (Role.teacher, Role.admin) or not teacher.is_active:
-            raise invalid_input(f"User {teacher_id} ({teacher.name}) is not an active teacher.")
+    codes = {e.subject_code for e in body.entries if e.subject_code is not None}
+    subjects = {s.code: s for s in db.scalars(select(Subject).where(Subject.code.in_(codes)))}
+    if missing := sorted(codes - set(subjects)):
+        raise not_found(f"Subject {missing[0]} does not exist.")
+
+    # A teacher can be given by user ID or college ID; look each one up once.
+    teachers: dict[tuple[int | None, str | None], User] = {}
+    checked = []
+    for entry in body.entries:
+        key = (entry.teacher_id, entry.teacher)
+        if key not in teachers:
+            teachers[key] = find_teacher(db, entry.teacher_id, entry.teacher)
+        name = entry.subject.strip() if entry.subject else subjects[entry.subject_code].title
+        checked.append(CheckedEntry(teacher_id=teachers[key].id, name=name[:100]))
+    return checked
 
 
 def remove_previous_timetable(db: Session, body: TimetableIn, now: dt.datetime) -> None:
@@ -217,14 +250,16 @@ def remove_previous_timetable(db: Session, body: TimetableIn, now: dt.datetime) 
 
 
 def save_entry(db: Session, body: TimetableIn, entry: TimetableEntryIn,
-               now: dt.datetime) -> tuple[int, list[SkippedDate]]:
+               checked: CheckedEntry, now: dt.datetime) -> tuple[int, list[SkippedDate]]:
     """Save one entry and its weekly bookings. Returns (created, skipped dates)."""
     weekday = WEEKDAYS.index(entry.weekday)
     row = TimetableEntry(
         room_id=entry.room_id,
         class_id=entry.class_id,
-        teacher_id=entry.teacher_id,
-        subject=entry.subject.strip(),
+        teacher_id=checked.teacher_id,
+        subject=checked.name,
+        subject_code=entry.subject_code,
+        batch=entry.batch,
         weekday=weekday,
         start_time=minutes(entry.start),
         end_time=minutes(entry.end),
@@ -233,6 +268,11 @@ def save_entry(db: Session, body: TimetableIn, entry: TimetableEntryIn,
     )
     db.add(row)
     db.flush()
+    if entry.subject_code is not None:
+        record_teaching(db, checked.teacher_id, entry.subject_code, entry.class_id,
+                        entry.batch)
+    if entry.room_id is None:
+        return 0, []  # shown on the timetable, but books no room
 
     created = 0
     skipped: list[SkippedDate] = []
@@ -244,11 +284,11 @@ def save_entry(db: Session, body: TimetableIn, entry: TimetableEntryIn,
             with db.begin_nested():
                 db.add(Booking(
                     room_id=entry.room_id,
-                    user_id=entry.teacher_id,
+                    user_id=checked.teacher_id,
                     class_id=entry.class_id,
                     start_at=start,
                     end_at=end,
-                    purpose=row.subject,
+                    purpose=booking_purpose(entry, checked.name),
                     status=BookingStatus.scheduled,
                     source=BookingSource.timetable,
                     timetable_entry_id=row.id,
@@ -287,7 +327,7 @@ def upload_timetable(
     with each other are not saved (see `clashes`); weeks that clash with an
     existing booking are skipped (see `skipped_dates`).
     """
-    check_upload(db, body)
+    checked = check_upload(db, body)
     clashes, clashing = find_entry_clashes(body.entries)
 
     now = now_ist()
@@ -298,7 +338,7 @@ def upload_timetable(
     for i, entry in enumerate(body.entries):
         if i in clashing:
             continue
-        entry_created, entry_skipped = save_entry(db, body, entry, now)
+        entry_created, entry_skipped = save_entry(db, body, entry, checked[i], now)
         created += entry_created
         skipped.extend(entry_skipped)
 
