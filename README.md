@@ -135,11 +135,21 @@ the password `roomsync123`:
 | College ID | Who | Role |
 | --- | --- | --- |
 | `SA001` | Principal's Office | Super admin |
-| `T001` | Dr. K. Rao (HOD) | Admin |
-| `T002` | Prof. A. Sharma | Teacher, class teacher of CSE-7A |
-| `T003` | Prof. R. Rao | Teacher, class teacher of CSE-5B |
+| `T001` | Dr. K. Rao (HOD) | Admin; coordinator of the Open Elective and Major Project |
+| `T002` | Prof. A. Sharma | Teacher (BCS702 to CSE-7A and CSE-7B), class teacher of CSE-7A |
+| `T003` | Prof. R. Rao | Teacher (BCS703), class teacher of CSE-7B |
+| `T004` | Dr. K. Rajan | Teacher (BCS701) |
+| `T005` | Mrs. S. Bhat | Teacher (BCS714D) |
 | `1JS23CS044` | Deeptanshu Pandey | Student, CR of CSE-7A |
-| `1JS23CS039` | Chirag S | Student |
+| `1JS23CS039` | Chirag S | Student, CSE-7A |
+
+The seed also loads semester VII (W.E.F 20 Jul 2026 to 28 Nov 2026): the
+CSE-7A timetable, three CSE-7B classes for T002, the VII-sem course list,
+and rooms A-312/A-313 (classrooms), A-310/A-219/A-202 (labs),
+B-303/B-304/B-305/B-309 (classrooms), CSE-101 (the phone camera's room)
+and MR-1. In the current
+week, T002 has a BCS702 extra class on Saturday P2, and their next CSE-7B
+class is moved to B-303 by the HOD.
 
 `--host 0.0.0.0` lets other devices on the same Wi-Fi (a phone, the
 projector laptop) open the dashboard at `http://<this laptop's IP>:8000/`.
