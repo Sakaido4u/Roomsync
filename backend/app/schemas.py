@@ -662,6 +662,86 @@ class TimetableOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Week view (endpoint 33)
+# ---------------------------------------------------------------------------
+
+class LiveOccupancy(BaseModel):
+    occupancy: str
+    head_count: int | None
+    last_reading_at: dt.datetime | None
+
+    @field_serializer("last_reading_at")
+    def _last_reading_at(self, value: dt.datetime | None) -> str | None:
+        return to_ist(value).isoformat(timespec="seconds") if value else None
+
+
+class ChangeInfo(BaseModel):
+    """What an admin (or the no-show check) changed, for the hover/tap text."""
+
+    action: str             # override / reschedule / remove / release
+    reason: str
+    by: str | None          # admin's name; null for the automatic no-show release
+    details: str | None     # e.g. "A-313 on 23 Oct, 10:00-11:00 (...) -> B-303 on ..."
+
+
+class WeekEntry(BaseModel):
+    """One class or booking inside a grid cell."""
+
+    booking_id: int | None              # null: on the timetable but books no room
+    timetable_entry_id: int | None      # null: a one-time reservation
+    subject_code: str | None
+    title: str                          # subject title, or the purpose
+    purpose: str
+    teacher: TeacherRef
+    class_id: str | None
+    batch: str | None
+    room_id: str | None
+    start: str
+    end: str
+    booking_status: str
+    is_extra: bool                      # one-time reservation, not a timetable class
+    change: ChangeInfo | None
+    occupancy: LiveOccupancy | None     # only while it is running now
+
+
+class WeekCell(BaseModel):
+    """One cell of the grid: a period, or several merged (a two-period lab)."""
+
+    period: str                 # first period of the cell
+    periods: list[str]          # every period it covers, e.g. ["P6", "P7"]
+    start: str
+    end: str
+    bookable: bool              # false for the lunch break
+    entries: list[WeekEntry]    # empty list = a free period
+
+
+class WeekDay(BaseModel):
+    date: dt.date
+    weekday: str
+    cells: list[WeekCell]
+    outside_periods: list[WeekEntry]    # bookings that fall outside every period
+
+
+class WeekSubject(BaseModel):
+    """Who the grid is for: exactly one of teacher, class_info, room is set."""
+
+    kind: Literal["teacher", "class", "room"]
+    teacher: TeacherRef | None = None
+    class_info: ClassOut | None = None
+    room: RoomOut | None = None
+
+
+class WeekOut(BaseModel):
+    week_start: dt.date         # the Monday
+    week_end: dt.date           # the Saturday
+    today: dt.date
+    current_period: str | None  # running now ("P3", "lunch"), or null
+    view: WeekSubject
+    days: list[WeekDay]
+    room_occupancy: LiveOccupancy | None    # room view, while the room has a camera
+
+
+# ---------------------------------------------------------------------------
 # Notifications (endpoints 22, 23)
 # ---------------------------------------------------------------------------
 

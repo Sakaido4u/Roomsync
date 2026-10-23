@@ -35,6 +35,7 @@ from app.routers import (
     teaching,
     timetable,
     users,
+    week,
 )
 
 
@@ -99,6 +100,7 @@ app.include_router(users.router)
 app.include_router(periods.router)
 app.include_router(subjects.router)
 app.include_router(teaching.router)
+app.include_router(week.router)
 
 # The web dashboard (plain HTML, CSS and JavaScript in ../frontend) is served
 # from the same server at http://127.0.0.1:8000/, so it can call /api/...

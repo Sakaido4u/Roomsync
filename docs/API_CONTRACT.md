@@ -5,7 +5,7 @@ Version 1.3 · 23 Oct 2026 (first draft agreed 16 Oct 2026)
 **Changes in 1.3 (timetable grid, part 2)**
 
 - Endpoint 12: the time can be one `period` (`"P3"`) instead of `start`/`end`; a new optional `subject_code` books an extra class for one of the teacher's own subjects (purpose filled in when left out); with a class, the `409` reply's `free_rooms` are suggested for that class.
-- Endpoint 34 (free rooms for a slot) added.
+- Endpoints 33 (week view) and 34 (free rooms for a slot) added.
 
 **Changes in 1.2 (timetable grid)**
 
@@ -71,7 +71,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 
 ## Endpoint summary
 
-33 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 to 32 and 34 for the timetable grid.
+34 endpoints cover every flow from the project report (E1 to E9); the sections below give the exact request and reply for each. Endpoints 24 and 25 were added so the dashboard can show names instead of asking for numeric IDs; 26 to 34 for the timetable grid.
 
 | # | Method and path | Who can call it | Purpose | Flow |
 | --- | --- | --- | --- | --- |
@@ -107,6 +107,7 @@ Every error has the same shape, so the dashboard handles them all the same way:
 | 30 | `GET /api/teaching` | Logged in | Who teaches which subject to which class | E6 |
 | 31 | `POST /api/teaching` | Admin | Record who teaches what | E6 |
 | 32 | `DELETE /api/teaching/{teaching_id}` | Admin | Remove a teaching assignment | E6 |
+| 33 | `GET /api/timetable/week` | Logged in | One week of the timetable grid for a teacher, class or room | E2, E6 |
 | 34 | `GET /api/rooms/free` | Logged in | Free rooms for a slot, best fit for a class first | E3 |
 
 ## Accounts and login
@@ -678,6 +679,88 @@ Errors: unknown teacher, subject or class (`404 not_found`), someone who is not 
 `DELETE /api/teaching/{teaching_id}`. Reply `200` with the removed row. Timetable classes already created are not changed. Unknown ID: `404 not_found`. Others get `403 forbidden`.
 
 ## Timetable grid
+
+### 33. Week view (logged in)
+
+`GET /api/timetable/week?week_start=2026-10-19&teacher=T002`
+
+Give exactly one of `teacher` (a college ID), `class_id` or `room_id`. `week_start` may be any day of the week (default: this week); the reply starts on its Monday. Everyone logged in can view any teacher, class or room.
+
+Reply `200` (shortened):
+
+```json
+{
+  "week_start": "2026-10-19",
+  "week_end": "2026-10-24",
+  "today": "2026-10-23",
+  "current_period": "P3",
+  "view": {
+    "kind": "teacher",
+    "teacher": { "user_id": 5, "college_id": "T002", "name": "Prof. A. Sharma", "initials": "AS" },
+    "class_info": null,
+    "room": null
+  },
+  "days": [
+    {
+      "date": "2026-10-20",
+      "weekday": "tuesday",
+      "cells": [
+        {
+          "period": "P1", "periods": ["P1"], "start": "09:00", "end": "10:00", "bookable": true,
+          "entries": []
+        },
+        {
+          "period": "lunch", "periods": ["lunch"], "start": "13:00", "end": "13:45", "bookable": false,
+          "entries": []
+        },
+        {
+          "period": "P6", "periods": ["P6", "P7"], "start": "14:45", "end": "16:45", "bookable": true,
+          "entries": [
+            {
+              "booking_id": 212,
+              "timetable_entry_id": 14,
+              "subject_code": "BCS702",
+              "title": "Parallel Computing",
+              "purpose": "BCS702 Parallel Computing (batch A2)",
+              "teacher": { "user_id": 5, "college_id": "T002", "name": "Prof. A. Sharma", "initials": "AS" },
+              "class_id": "CSE-7A",
+              "batch": "A2",
+              "room_id": "A-202",
+              "start": "14:45",
+              "end": "16:45",
+              "booking_status": "scheduled",
+              "is_extra": false,
+              "change": null,
+              "occupancy": null
+            }
+          ]
+        }
+      ],
+      "outside_periods": []
+    }
+  ],
+  "room_occupancy": null
+}
+```
+
+- `days`: Monday to Saturday. `cells`: the periods of endpoint 26 in order, lunch included (`bookable: false`). A cell with no `entries` is a free period.
+- Neighbouring periods are **one merged cell** when an entry runs across them: a two-period lab is `"periods": ["P6", "P7"]`, a whole-morning project `["P1", "P2", "P3", "P4"]`. Lunch is never merged.
+- Several entries in one cell are listed by start time, then batch, then room (both batches of a lab, side by side).
+- Each entry is a timetable class or a one-time reservation (`is_extra: true`), with its **status for that date**. When an admin moved, overrode or removed it, or the no-show check released it, `change` says what happened:
+
+  ```json
+  { "action": "reschedule", "reason": "A-313 projector under repair", "by": "Dr. K. Rao (HOD)",
+    "details": "A-313 on 22 Oct, 11:00-12:00 (BCS702 Parallel Computing) -> B-303 on 22 Oct, 11:00-12:00" }
+  ```
+
+  `action` is `override`, `reschedule`, `remove` or `release`; `by` is `null` for the automatic release. A moved class shows in its new room and time. A reservation its own teacher cancelled is not shown (the period is simply free again).
+- Timetable entries without a room (Open Elective, Major Project) have `booking_id: null` and `room_id: null`. Weeks before the timetable was uploaded also come from the timetable itself (`booking_id: null`).
+- `title` is the subject's title when the code is known, else the subject name or purpose.
+- `occupancy` (same values as endpoint 21: `occupancy`, `head_count`, `last_reading_at`) is filled in only on an entry that is running now; `room_occupancy` only in the room view, for the current week.
+- `outside_periods`: bookings that touch no period (e.g. a 17:30 meeting).
+- `view` says whose week it is: `teacher`, `class_info` (as in endpoint 28) or `room` (as in endpoint 8).
+
+Errors: none or more than one of `teacher`, `class_id`, `room_id`, or a bad date (`400 invalid_input`); unknown teacher, class or room (`404 not_found`); a college ID that is not a teacher (`400 invalid_input`).
 
 ### 34. Free rooms for a slot (logged in)
 
